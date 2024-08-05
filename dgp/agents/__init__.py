@@ -9,6 +9,12 @@ AGENT_REGISTRY = {"agent_2d": AgentSnapshot2DList, "agent_3d": AgentSnapshot3DLi
 # Annotation groups for each annotation type: 2d/3d
 AGENT_TYPE_TO_ANNOTATION_GROUP = {"agent_2d": "2d", "agent_3d": "3d"}
 
-AGENT_TYPE_TO_ANNOTATION_TYPE = {"agent_2d": "bounding_box_2d", "agent_3d": "bounding_box_3d"}
+AGENT_TYPE_TO_ANNOTATION_TYPE = {
+    "agent_2d": "bounding_box_2d",
+    "agent_3d": "bounding_box_3d",
+}
 
-ANNOTATION_TYPE_TO_AGENT_TYPE = {"bounding_box_2d": "agent_2d", "bounding_box_3d": "agent_3d"}
+ANNOTATION_TYPE_TO_AGENT_TYPE = {
+    "bounding_box_2d": "agent_2d",
+    "bounding_box_3d": "agent_3d",
+}

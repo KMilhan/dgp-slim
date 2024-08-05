@@ -1,5 +1,106 @@
-[tool.isort]
-# Configure isort to play nicely with our YAPF configuration.
-# https://pycqa.github.io/isort/docs/configuration/multi_line_output_modes.html#3-vertical-hanging-indent
-multi_line_output = 3
-include_trailing_comma = true
+[tool.poetry]
+name = "dgp"
+description = "DGP, but slim"
+version = "0.1.0"
+authors = ["Woven By Toyota <enterprise-ai-solutions@woven.toyota>"]
+readme = "./README.md"
+repository = "https://github.com/dgp-slim"
+
+[[tool.poetry.source]]
+name = "artifactory"
+url = "https://artifactory.stargate.toyota/artifactory/api/pypi/eai-pypi-local-internal/simple"
+priority = "primary"
+
+
+[[tool.poetry.source]]
+name = "artifactory-remote"
+url = "https://artifactory.stargate.toyota/artifactory/api/pypi/python-remote/simple"
+priority = "primary"
+
+[[tool.poetry.source]]
+name = "artifactory-publish"
+url = "https://artifactory.stargate.toyota/artifactory/api/pypi/eai-pypi-local-internal"
+priority = "explicit"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<4.0"  # Should be forward-compatible
+protobuf = "<6.0"
+grpcio-tools = "<2.0"
+numpy = "<2.0"
+pillow = "<11.0"
+pyquaternion = "<1.0"
+diskcache = "^5.6.3"
+setuptools = "*"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "<9"
+pytest-asyncio = "^0.23.8"
+black = "*"
+ruff = "*"
+mypy = "*"
+pytest-cov = "<6"
+mypy-protobuf = "*"
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+# All async tests are automatically treated as async test
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+target-version = ['py312']
+exclude = "/\\w+_pb2\\.py/"
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+exclude = "./tests/"
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+ignore_missing_imports = true
+
+[tool.ruff]
+# Isort, Pyflakes, pep8 naming, pydocstyle, PyLint
+lint.select = ["I", "E", "F", "W", "N", "D", "PL"]
+# Exclude checkers that doesn't fit to Google Style DocString.
+lint.ignore = ["E501", "D406", "D407", "D107", "D203", "D213"]
+
+# Allow autofix for all enabled rules (when `--fix`) is provided.
+lint.fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+lint.unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "tests",
+    "*_pb2.py"
+]
+
+# Allow unused variables when underscore-prefixed.
+lint.dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# Set the lowest version we support
+target-version = "py311"

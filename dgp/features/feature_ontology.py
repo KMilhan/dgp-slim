@@ -15,7 +15,7 @@ from dgp.utils.protobuf import (
 class FeatureOntology:
     """Feature ontology object. At bare minimum, we expect ontologies to provide:
         ID: (int) identifier for feature field name
-        Name: (str) string identifier for feature field name
+        Name: (str) string identifier for feature field name.
 
     Based on the task, additional fields may be populated. Refer to `dataset.proto` and `ontology.proto`
     specifications for more details. Can be constructed from file or from deserialized proto object.
@@ -24,6 +24,7 @@ class FeatureOntology:
     ----------
     feature_ontology_pb2: OntologyPb2
         Deserialized ontology object.
+
     """
 
     # Special value and class name reserved for pixels that should be ignored
@@ -35,17 +36,36 @@ class FeatureOntology:
 
         if isinstance(self._ontology, FeatureOntologyPb2):
             self._name_to_id = OrderedDict(
-                sorted([(ontology_item.name, ontology_item.id) for ontology_item in self._ontology.items])
+                sorted(
+                    [
+                        (ontology_item.name, ontology_item.id)
+                        for ontology_item in self._ontology.items
+                    ]
+                )
             )
             self._id_to_name = OrderedDict(
-                sorted([(ontology_item.id, ontology_item.name) for ontology_item in self._ontology.items])
+                sorted(
+                    [
+                        (ontology_item.id, ontology_item.name)
+                        for ontology_item in self._ontology.items
+                    ]
+                )
             )
             self._id_to_feature_value_type = OrderedDict(
-                sorted([(ontology_item.id, ontology_item.feature_value_type) for ontology_item in self._ontology.items])
+                sorted(
+                    [
+                        (ontology_item.id, ontology_item.feature_value_type)
+                        for ontology_item in self._ontology.items
+                    ]
+                )
             )
 
         else:
-            raise TypeError("Unexpected type {}, expected FeatureOntologyV2".format(type(self._ontology)))
+            raise TypeError(
+                "Unexpected type {}, expected FeatureOntologyV2".format(
+                    type(self._ontology)
+                )
+            )
 
         self._feature_ids = sorted(self._id_to_name.keys())
         self._feature_names = [self._id_to_name[c_id] for c_id in self._feature_ids]
@@ -65,6 +85,7 @@ class FeatureOntology:
             Raised if ontology_file does not exist.
         TypeError
             Raised if we could not read an ontology out of the ontology file.
+
         """
         if os.path.exists(ontology_file):
             feature_ontology_pb2 = open_feature_ontology_pbobject(ontology_file)
@@ -82,12 +103,16 @@ class FeatureOntology:
         -------
         OntologyPb2
             Serialized ontology
+
         """
         return FeatureOntologyPb2(
             items=[
                 FeatureOntologyItem(
-                    name=name, id=feature_id, feature_value_type=self.id_to_feature_value_type[feature_id]
-                ) for feature_id, name in self._id_to_name.items()
+                    name=name,
+                    id=feature_id,
+                    feature_value_type=self.id_to_feature_value_type[feature_id],
+                )
+                for feature_id, name in self._id_to_name.items()
             ]
         )
 
@@ -103,6 +128,7 @@ class FeatureOntology:
         -------
         output_ontology_file: str
             Path to serialized ontology file.
+
         """
         os.makedirs(save_dir, exist_ok=True)
         return save_pbobject_as_json(self.to_proto(), save_path=save_dir)
@@ -133,15 +159,17 @@ class FeatureOntology:
 
     @property
     def hexdigest(self):
-        """Hash object"""
+        """Hash object."""
         return generate_uid_from_pbobject(self.to_proto())
 
     def __eq__(self, other):
         return self.hexdigest == other.hexdigest
 
     def __repr__(self):
-        return "{}[{}]".format(self.__class__.__name__, os.path.basename(self.hexdigest))
+        return "{}[{}]".format(
+            self.__class__.__name__, os.path.basename(self.hexdigest)
+        )
 
 
 class AgentFeatureOntology(FeatureOntology):
-    """Agent feature ontologies derive directly from Ontology"""
+    """Agent feature ontologies derive directly from Ontology."""

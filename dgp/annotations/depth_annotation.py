@@ -14,7 +14,9 @@ class DenseDepthAnnotation(Annotation):
     ----------
     depth: np.ndarray
         2D numpy float array that stores per-pixel depth.
+
     """
+
     def __init__(self, depth):
         assert isinstance(depth, np.ndarray)
         assert depth.dtype in [np.float32, np.float64]
@@ -36,9 +38,12 @@ class DenseDepthAnnotation(Annotation):
 
         ontology: None
             Dummy ontology argument to meet the usage in `BaseDataset.load_annotation()`.
+
         """
-        assert ontology is None, "'ontology' must be 'None' for {}.".format(cls.__name__)
-        depth = np.load(annotation_file)['data']
+        assert ontology is None, "'ontology' must be 'None' for {}.".format(
+            cls.__name__
+        )
+        depth = np.load(annotation_file)["data"]
         return cls(depth)
 
     @property
@@ -47,7 +52,7 @@ class DenseDepthAnnotation(Annotation):
 
     def save(self, save_dir):
         """Serialize annotation object if possible, and saved to specified directory.
-        Annotations are saved in format <save_dir>/<sha>.<ext>
+        Annotations are saved in format <save_dir>/<sha>.<ext>.
 
         Parameters
         ----------
@@ -58,8 +63,9 @@ class DenseDepthAnnotation(Annotation):
         -------
         pointcloud_path: str
             Full path to the output NPZ file.
+
         """
-        pointcloud_path = os.path.join(save_dir, '{}.npz'.format(self.hexdigest))
+        pointcloud_path = os.path.join(save_dir, "{}.npz".format(self.hexdigest))
         np.savez_compressed(pointcloud_path, data=self.depth)
         return pointcloud_path
 

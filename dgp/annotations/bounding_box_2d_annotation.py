@@ -25,10 +25,14 @@ class BoundingBox2DAnnotationList(Annotation):
 
     boxlist: list[BoundingBox2D]
         List of BoundingBox2D objects. See `dgp/utils/structures/bounding_box_2d` for more details.
+
     """
+
     def __init__(self, ontology, boxlist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, BoundingBoxOntology), "Trying to load annotation with wrong type of ontology!"
+        assert isinstance(
+            self._ontology, BoundingBoxOntology
+        ), "Trying to load annotation with wrong type of ontology!"
         for box in boxlist:
             assert isinstance(
                 box, BoundingBox2D
@@ -51,6 +55,7 @@ class BoundingBox2DAnnotationList(Annotation):
         -------
         BoundingBox2DAnnotationList
             Annotation object instantiated from file.
+
         """
         _annotation_pb2 = parse_pbobject(annotation_file, BoundingBox2DAnnotations)
         boxlist = [
@@ -60,7 +65,8 @@ class BoundingBox2DAnnotationList(Annotation):
                 instance_id=ann.instance_id,
                 color=ontology.colormap[ann.class_id],
                 attributes=getattr(ann, "attributes", {}),
-            ) for ann in _annotation_pb2.annotations
+            )
+            for ann in _annotation_pb2.annotations
         ]
         return cls(ontology, boxlist)
 
@@ -71,6 +77,7 @@ class BoundingBox2DAnnotationList(Annotation):
         -------
         BoundingBox2DAnnotations
             Annotation as defined in `proto/annotations.proto`
+
         """
         return BoundingBox2DAnnotations(
             annotations=[
@@ -79,13 +86,14 @@ class BoundingBox2DAnnotationList(Annotation):
                     box=box.to_proto(),
                     area=int(box.area),
                     instance_id=box.instance_id,
-                    attributes=box.attributes
-                ) for box in self.boxlist
+                    attributes=box.attributes,
+                )
+                for box in self.boxlist
             ]
         )
 
     def save(self, save_dir):
-        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>
+        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>.
 
         Parameters
         ----------
@@ -96,6 +104,7 @@ class BoundingBox2DAnnotationList(Annotation):
         -------
         output_annotation_file: str
             Full path to saved annotation
+
         """
         return save_pbobject_as_json(self.to_proto(), save_path=save_dir)
 
@@ -103,7 +112,7 @@ class BoundingBox2DAnnotationList(Annotation):
         return len(self.boxlist)
 
     def __getitem__(self, index):
-        """Return a single 3D bounding box"""
+        """Return a single 3D bounding box."""
         return self.boxlist[index]
 
     def render(self):
@@ -112,12 +121,12 @@ class BoundingBox2DAnnotationList(Annotation):
 
     @property
     def ltrb(self):
-        """Return boxes as (N, 4) np.ndarray in format ([left, top, right, bottom])"""
+        """Return boxes as (N, 4) np.ndarray in format ([left, top, right, bottom])."""
         return np.array([box.ltrb for box in self.boxlist], dtype=np.float32)
 
     @property
     def ltwh(self):
-        """Return boxes as (N, 4) np.ndarray in format ([left, top, width, height])"""
+        """Return boxes as (N, 4) np.ndarray in format ([left, top, width, height])."""
         return np.array([box.ltwh for box in self.boxlist], dtype=np.float32)
 
     @property

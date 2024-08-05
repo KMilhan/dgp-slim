@@ -1,8 +1,7 @@
 # Copyright 2021 Toyota Research Institute.  All rights reserved.
-"""General-purpose class for rigid-body transformations.
-"""
+"""General-purpose class for rigid-body transformations."""
 import numpy as np
-from pyquaternion import Quaternion
+from pyquaternion import Quaternion  # type: ignore
 
 from dgp.proto import geometry_pb2
 
@@ -11,10 +10,14 @@ class Pose:
     """SE(3) rigid transform class that allows compounding of 6-DOF poses
     and provides common transformations that are commonly seen in geometric problems.
     """
+
     def __init__(
-        self, wxyz=np.float32([1., 0., 0., 0.]), tvec=np.float32([0., 0., 0.]), reference_coordinate_system=""
+        self,
+        wxyz=np.float32([1.0, 0.0, 0.0, 0.0]),
+        tvec=np.float32([0.0, 0.0, 0.0]),
+        reference_coordinate_system="",
     ):
-        """Initialize a Pose with Quaternion and 3D Position
+        """Initialize a Pose with Quaternion and 3D Position.
 
         Parameters
         ----------
@@ -25,6 +28,7 @@ class Pose:
             Translation (xyz)
         reference_coordinate_system: str
             Reference coordinate system this Pose (Transform) is expressed with respect to
+
         """
         assert isinstance(wxyz, (np.ndarray, Quaternion))
         assert isinstance(tvec, np.ndarray)
@@ -37,9 +41,11 @@ class Pose:
         self.tvec = tvec
 
     def __repr__(self):
-        formatter = {'float_kind': lambda x: '%.2f' % x}
+        formatter = {"float_kind": lambda x: "%.2f" % x}
         tvec_str = np.array2string(self.tvec, formatter=formatter)
-        return 'wxyz: {}, tvec: ({}) wrt. `{}`'.format(self.quat, tvec_str, self.reference_coordinate_system)
+        return "wxyz: {}, tvec: ({}) wrt. `{}`".format(
+            self.quat, tvec_str, self.reference_coordinate_system
+        )
 
     def copy(self):
         """Return a copy of this pose object.
@@ -48,8 +54,11 @@ class Pose:
         -------
         Pose
             Copied pose object.
+
         """
-        return self.__class__(Quaternion(self.quat), self.tvec.copy(), self.reference_coordinate_system)
+        return self.__class__(
+            Quaternion(self.quat), self.tvec.copy(), self.reference_coordinate_system
+        )
 
     def __mul__(self, other):
         """Left-multiply Pose with another Pose or 3D-Points.
@@ -66,6 +75,7 @@ class Pose:
         -------
         Pose or np.ndarray
             Transformed pose or point cloud
+
         """
         if isinstance(other, Pose):
             assert isinstance(other, self.__class__)
@@ -73,14 +83,14 @@ class Pose:
             q = self.quat * other.quat
             return self.__class__(q, t)
         elif isinstance(other, np.ndarray):
-            assert other.shape[-1] == 3, 'Point cloud is not 3-dimensional'
+            assert other.shape[-1] == 3, "Point cloud is not 3-dimensional"
             X = np.hstack([other, np.ones((len(other), 1))]).T
             return (np.dot(self.matrix, X).T)[:, :3]
         else:
             return NotImplemented
 
     def __rmul__(self, other):
-        raise NotImplementedError('Right multiply not implemented yet!')
+        raise NotImplementedError("Right multiply not implemented yet!")
 
     def inverse(self, new_reference_coordinate_system=""):
         """Returns a new Pose that corresponds to the
@@ -95,20 +105,24 @@ class Pose:
         -------
         Pose
             new_reference_coordinate_system pose
+
         """
         qinv = self.quat.inverse
         return self.__class__(
-            qinv, qinv.rotate(-self.tvec), reference_coordinate_system=new_reference_coordinate_system
+            qinv,
+            qinv.rotate(-self.tvec),
+            reference_coordinate_system=new_reference_coordinate_system,
         )
 
     @property
     def matrix(self):
-        """Returns a 4x4 homogeneous matrix of the form [R t; 0 1]
+        """Returns a 4x4 homogeneous matrix of the form [R t; 0 1].
 
         Returns
         -------
         result: np.ndarray
             4x4 homogeneous matrix
+
         """
         result = self.quat.transformation_matrix
         result[:3, 3] = self.tvec
@@ -116,12 +130,13 @@ class Pose:
 
     @property
     def rotation_matrix(self):
-        """Returns the 3x3 rotation matrix (R)
+        """Returns the 3x3 rotation matrix (R).
 
         Returns
         -------
         np.ndarray
             3x3 rotation matrix
+
         """
         result = self.quat.transformation_matrix
         return result[:3, :3]
@@ -134,6 +149,7 @@ class Pose:
         -------
         Quaternion
             Rotation component of the Pose object.
+
         """
         return self.quat
 
@@ -145,12 +161,13 @@ class Pose:
         -------
         np.ndarray
             Translation component of the Pose object.
+
         """
         return self.tvec
 
     @classmethod
     def from_matrix(cls, transformation_matrix, reference_coordinate_system=""):
-        """Initialize pose from 4x4 transformation matrix
+        """Initialize pose from 4x4 transformation matrix.
 
         Parameters
         ----------
@@ -162,15 +179,18 @@ class Pose:
         Returns
         -------
         Pose
+
         """
         return cls(
             wxyz=Quaternion(matrix=transformation_matrix[:3, :3]),
             tvec=np.float32(transformation_matrix[:3, 3]),
-            reference_coordinate_system=reference_coordinate_system
+            reference_coordinate_system=reference_coordinate_system,
         )
 
     @classmethod
-    def from_rotation_translation(cls, rotation_matrix, tvec, reference_coordinate_system=""):
+    def from_rotation_translation(
+        cls, rotation_matrix, tvec, reference_coordinate_system=""
+    ):
         """Initialize pose from rotation matrix and translation vector.
 
         Parameters
@@ -181,16 +201,17 @@ class Pose:
             length-3 translation vector
         reference_coordinate_system: str
             Reference coordinate system this Pose (Transform) is expressed with respect to
+
         """
         return cls(
             wxyz=Quaternion(matrix=rotation_matrix),
             tvec=np.float64(tvec),
-            reference_coordinate_system=reference_coordinate_system
+            reference_coordinate_system=reference_coordinate_system,
         )
 
     @classmethod
     def load(cls, pose_proto):
-        """Initialize pose from 4x4 transformation matrix
+        """Initialize pose from 4x4 transformation matrix.
 
         Parameters
         ----------
@@ -200,23 +221,31 @@ class Pose:
         Returns
         -------
         Pose
+
         """
+        rotation = np.float32(
+            [
+                pose_proto.rotation.qw,
+                pose_proto.rotation.qx,
+                pose_proto.rotation.qy,
+                pose_proto.rotation.qz,
+            ]
+        )
 
-        rotation = np.float32([
-            pose_proto.rotation.qw,
-            pose_proto.rotation.qx,
-            pose_proto.rotation.qy,
-            pose_proto.rotation.qz,
-        ])
-
-        translation = np.float32([
-            pose_proto.translation.x,
-            pose_proto.translation.y,
-            pose_proto.translation.z,
-        ])
+        translation = np.float32(
+            [
+                pose_proto.translation.x,
+                pose_proto.translation.y,
+                pose_proto.translation.z,
+            ]
+        )
         reference_coordinate_system = pose_proto.reference_coordinate_system
 
-        return cls(wxyz=rotation, tvec=translation, reference_coordinate_system=reference_coordinate_system)
+        return cls(
+            wxyz=rotation,
+            tvec=translation,
+            reference_coordinate_system=reference_coordinate_system,
+        )
 
     def to_proto(self):
         """Convert Pose into pb object.
@@ -225,6 +254,7 @@ class Pose:
         -------
         pose_0S: Pose_pb2
             Pose as defined in proto/geometry.proto
+
         """
         pose_0S = geometry_pb2.Pose()
         pose_0S.rotation.qw = self.quat.elements[0]
@@ -240,6 +270,7 @@ class Pose:
 
     def __eq__(self, other):
         return (
-            self.quat == other.quat and (self.tvec == other.tvec).all()
+            self.quat == other.quat
+            and (self.tvec == other.tvec).all()
             and self.reference_coordinate_system == other.reference_coordinate_system
         )

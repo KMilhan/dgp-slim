@@ -21,11 +21,14 @@ class AgentSnapshot3DList(AgentSnapshotList):
     boxlist: list[BoundingBox3D]
         List of BoundingBox3D objects. See `utils/structures/bounding_box_3d`
         for more details.
+
     """
+
     def __init__(self, ontology, boxlist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, BoundingBoxOntology), "Trying to load AgentSnapshot3DList with wrong type of " \
-                                                                "ontology!"
+        assert isinstance(self._ontology, BoundingBoxOntology), (
+            "Trying to load AgentSnapshot3DList with wrong type of " "ontology!"
+        )
 
         for box in boxlist:
             assert isinstance(
@@ -58,25 +61,40 @@ class AgentSnapshot3DList(AgentSnapshotList):
         -------
         AgentSnapshot3DList
             Agent Snapshot list object instantiated from proto object.
+
         """
         boxlist = []
         for agent_snapshot_3d in agent_snapshots_pb2:
             feature_type = agent_snapshot_3d.agent_snapshot_3D.feature_type
-            feature_ontology = feature_ontology_table[FEATURE_TYPE_ID_TO_KEY[feature_type]]
+            feature_ontology = feature_ontology_table[
+                FEATURE_TYPE_ID_TO_KEY[feature_type]
+            ]
             boxlist.append(
                 BoundingBox3D(
                     pose=Pose.load(agent_snapshot_3d.agent_snapshot_3D.box.pose),
-                    sizes=np.float32([
-                        agent_snapshot_3d.agent_snapshot_3D.box.width, agent_snapshot_3d.agent_snapshot_3D.box.length,
-                        agent_snapshot_3d.agent_snapshot_3D.box.height
-                    ]),
-                    class_id=ontology.class_id_to_contiguous_id[agent_snapshot_3d.agent_snapshot_3D.class_id],
+                    sizes=np.float32(
+                        [
+                            agent_snapshot_3d.agent_snapshot_3D.box.width,
+                            agent_snapshot_3d.agent_snapshot_3D.box.length,
+                            agent_snapshot_3d.agent_snapshot_3D.box.height,
+                        ]
+                    ),
+                    class_id=ontology.class_id_to_contiguous_id[
+                        agent_snapshot_3d.agent_snapshot_3D.class_id
+                    ],
                     instance_id=agent_snapshot_3d.agent_snapshot_3D.instance_id,
                     sample_idx=agent_snapshot_3d.slice_id.index,
-                    color=ontology.colormap[agent_snapshot_3d.agent_snapshot_3D.class_id],
-                    attributes=dict([(feature_ontology.id_to_name[feature_id], feature)
-                                     for feature_id, feature in enumerate(agent_snapshot_3d.agent_snapshot_3D.features)]
-                                    ),
+                    color=ontology.colormap[
+                        agent_snapshot_3d.agent_snapshot_3D.class_id
+                    ],
+                    attributes=dict(
+                        [
+                            (feature_ontology.id_to_name[feature_id], feature)
+                            for feature_id, feature in enumerate(
+                                agent_snapshot_3d.agent_snapshot_3D.features
+                            )
+                        ]
+                    ),
                 )
             )
 
@@ -86,11 +104,11 @@ class AgentSnapshot3DList(AgentSnapshotList):
         return len(self.boxlist)
 
     def __getitem__(self, index):
-        """Return a single 3D bounding box"""
+        """Return a single 3D bounding box."""
         return self.boxlist[index]
 
     def render(self, image, camera, line_thickness=2, font_scale=0.5):
-        """Render the 3D boxes in this agents on the image in place
+        """Render the 3D boxes in this agents on the image in place.
 
         Parameters
         ----------
@@ -113,20 +131,24 @@ class AgentSnapshot3DList(AgentSnapshotList):
             Raised if `image` is not a 3-channel uint8 numpy array.
         TypeError
             Raised if `camera` is not an instance of Camera.
+
         """
         if (
-            not isinstance(image, np.ndarray) or image.dtype != np.uint8 or len(image.shape) != 3 or image.shape[2] != 3
+            not isinstance(image, np.ndarray)
+            or image.dtype != np.uint8
+            or len(image.shape) != 3
+            or image.shape[2] != 3
         ):
-            raise ValueError('`image` needs to be a 3-channel uint8 numpy array')
+            raise ValueError("`image` needs to be a 3-channel uint8 numpy array")
         if not isinstance(camera, Camera):
-            raise TypeError('`camera` should be of type Camera')
+            raise TypeError("`camera` should be of type Camera")
         for box in self.boxlist:
             box.render(
                 image,
                 camera,
                 line_thickness=line_thickness,
                 class_name=self._ontology.contiguous_id_to_name[box.class_id],
-                font_scale=font_scale
+                font_scale=font_scale,
             )
 
     @property

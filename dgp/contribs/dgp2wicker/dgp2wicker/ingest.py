@@ -1,6 +1,5 @@
 # Copyright 2022 Woven Planet.  All rights reserved.
-"""DGP to Wicker ingestion methods
-"""
+"""DGP to Wicker ingestion methods."""
 # pylint: disable=missing-param-doc
 import logging
 import os
@@ -11,48 +10,55 @@ from copy import deepcopy
 from functools import partial
 from typing import Any, Callable, Dict, Generator, List, Optional, Tuple, Union
 
-import dgp2wicker.serializers as ws
 import numpy as np
 import pyspark
 import wicker
 import wicker.plugins.spark as wsp
 from wicker.schema import IntField, StringField
 
+import dgp2wicker.serializers as ws
 from dgp.datasets import ParallelDomainScene, SynchronizedScene
 from dgp.proto import dataset_pb2
 from dgp.proto.dataset_pb2 import SceneDataset
 from dgp.utils.cloud.s3 import sync_dir
 from dgp.utils.protobuf import open_pbobject
 
-PC_DATUMS = ('point_cloud', 'radar_point_cloud')
+PC_DATUMS = ("point_cloud", "radar_point_cloud")
 NON_PC_FIELDS = (
-    'depth', 'semantic_segmentation_2d', 'instance_segmentation_2d', 'bounding_box_2d', 'key_point_2d', 'key_line_2d'
+    "depth",
+    "semantic_segmentation_2d",
+    "instance_segmentation_2d",
+    "bounding_box_2d",
+    "key_point_2d",
+    "key_line_2d",
 )
-ILLEGAL_COMBINATIONS = {(pc_datum, field) for pc_datum in PC_DATUMS for field in NON_PC_FIELDS}
-WICKER_KEY_SEPARATOR = '____'
+ILLEGAL_COMBINATIONS = {
+    (pc_datum, field) for pc_datum in PC_DATUMS for field in NON_PC_FIELDS
+}
+WICKER_KEY_SEPARATOR = "____"
 
 # Map keys in SynchronizedScene output to wicker serialization methods
 FIELD_TO_WICKER_SERIALIZER = {
-    'datum_type': ws.StringSerializer,
-    'intrinsics': ws.IntrinsicsSerializer,
-    'distortion': ws.DistortionSerializer,
-    'extrinsics': ws.PoseSerializer,
-    'pose': ws.PoseSerializer,
-    'rgb': ws.RGBSerializer,
-    'timestamp': ws.LongSerializer,
-    'point_cloud': ws.PointCloudSerializer,
-    'extra_channels': ws.PointCloudSerializer,
-    'bounding_box_2d': ws.BoundingBox2DSerializer,
-    'bounding_box_3d': ws.BoundingBox3DSerializer,
-    'semantic_segmentation_2d': ws.SemanticSegmentation2DSerializer,
-    'instance_segmentation_2d': ws.InstanceSegmentation2DSerializer,
-    'depth': ws.DepthSerializer,
-    'velocity': ws.PointCloudSerializer,
-    'covariance': ws.PointCloudSerializer,
-    'key_point_2d': ws.KeyPoint2DSerializer,
-    'key_line_2d': ws.KeyLine2DSerializer,
-    'key_point_3d': ws.KeyPoint3DSerializer,
-    'key_line_3d': ws.KeyLine3DSerializer,
+    "datum_type": ws.StringSerializer,
+    "intrinsics": ws.IntrinsicsSerializer,
+    "distortion": ws.DistortionSerializer,
+    "extrinsics": ws.PoseSerializer,
+    "pose": ws.PoseSerializer,
+    "rgb": ws.RGBSerializer,
+    "timestamp": ws.LongSerializer,
+    "point_cloud": ws.PointCloudSerializer,
+    "extra_channels": ws.PointCloudSerializer,
+    "bounding_box_2d": ws.BoundingBox2DSerializer,
+    "bounding_box_3d": ws.BoundingBox3DSerializer,
+    "semantic_segmentation_2d": ws.SemanticSegmentation2DSerializer,
+    "instance_segmentation_2d": ws.InstanceSegmentation2DSerializer,
+    "depth": ws.DepthSerializer,
+    "velocity": ws.PointCloudSerializer,
+    "covariance": ws.PointCloudSerializer,
+    "key_point_2d": ws.KeyPoint2DSerializer,
+    "key_line_2d": ws.KeyLine2DSerializer,
+    "key_point_3d": ws.KeyPoint3DSerializer,
+    "key_line_3d": ws.KeyLine3DSerializer,
 }
 
 logger = logging.getLogger(__name__)
@@ -60,7 +66,7 @@ logger.setLevel(logging.INFO)
 
 
 def gen_wicker_key(datum_name: str, field: str) -> str:
-    """Generate a key from a datum name and field i.e 'rgb', 'pose' etc
+    """Generate a key from a datum name and field i.e 'rgb', 'pose' etc.
 
     Parameters
     ----------
@@ -74,12 +80,13 @@ def gen_wicker_key(datum_name: str, field: str) -> str:
     -------
     key: str
         The wicker key name formed from datum_name and field
+
     """
-    return f'{datum_name}{WICKER_KEY_SEPARATOR}{field}'
+    return f"{datum_name}{WICKER_KEY_SEPARATOR}{field}"
 
 
 def parse_wicker_key(key: str) -> Tuple[str, str]:
-    """Parse a wicker dataset key into a datum and field combination
+    """Parse a wicker dataset key into a datum and field combination.
 
     Parameters
     ----------
@@ -93,6 +100,7 @@ def parse_wicker_key(key: str) -> Tuple[str, str]:
 
     field: str
         The field of the datum
+
     """
     return tuple(key.split(WICKER_KEY_SEPARATOR))  # type: ignore
 
@@ -119,15 +127,16 @@ def wicker_types_from_sample(
     -------
     wicker_types: List
         The Wicker schema types corresponding to the `wicker_keys`.
+
     """
     wicker_types = {}
     for datum in sample:
-        datum_name = datum['datum_name']
-        datum_type = datum['datum_type']
+        datum_name = datum["datum_name"]
+        datum_type = datum["datum_type"]
         for k, v in datum.items():
-            if k == 'datum_name' or (datum_type, k) in ILLEGAL_COMBINATIONS:
+            if k == "datum_name" or (datum_type, k) in ILLEGAL_COMBINATIONS:
                 continue
-            if datum_type == 'image' and k == 'bounding_box_3d' and skip_camera_cuboids:
+            if datum_type == "image" and k == "bounding_box_3d" and skip_camera_cuboids:
                 continue
             key = gen_wicker_key(datum_name, k)
             serializer = FIELD_TO_WICKER_SERIALIZER[k]
@@ -135,12 +144,12 @@ def wicker_types_from_sample(
 
     if ontology_table is not None:
         for k, v in ontology_table.items():
-            key = gen_wicker_key('ontology', k)
+            key = gen_wicker_key("ontology", k)
             wicker_types[key] = ws.OntologySerializer(k).schema(key, v)
 
-    wicker_types['scene_index'] = IntField('scene_index')
-    wicker_types['sample_index_in_scene'] = IntField('sample_index_in_scene')
-    wicker_types['scene_uri'] = StringField('scene_uri')
+    wicker_types["scene_index"] = IntField("scene_index")
+    wicker_types["sample_index_in_scene"] = IntField("sample_index_in_scene")
+    wicker_types["scene_uri"] = StringField("scene_uri")
 
     return wicker_types
 
@@ -179,10 +188,11 @@ def dgp_to_wicker_sample(
     -------
     wicker_sample: Dict
         DGP sample in the Wicker format.
+
     """
     wicker_sample = {}
     for datum in sample:
-        datum_name = datum['datum_name']
+        datum_name = datum["datum_name"]
         for k, v in datum.items():
             key = gen_wicker_key(datum_name, k)
             if key not in wicker_keys:
@@ -192,18 +202,20 @@ def dgp_to_wicker_sample(
 
     if ontology_table is not None:
         for k, v in ontology_table.items():
-            key = gen_wicker_key('ontology', k)
+            key = gen_wicker_key("ontology", k)
             wicker_sample[key] = ws.OntologySerializer(k).serialize(v)
 
-    wicker_sample['scene_index'] = scene_index
-    wicker_sample['sample_index_in_scene'] = sample_index_in_scene
-    wicker_sample['scene_uri'] = scene_uri
+    wicker_sample["scene_index"] = scene_index
+    wicker_sample["sample_index_in_scene"] = sample_index_in_scene
+    wicker_sample["scene_uri"] = scene_uri
 
     return wicker_sample
 
 
-def get_scenes(scene_dataset_json: str, data_uri: Optional[str] = None) -> List[Tuple[int, str, str]]:
-    """Get all the scene files from scene_dataset_json
+def get_scenes(
+    scene_dataset_json: str, data_uri: Optional[str] = None
+) -> List[Tuple[int, str, str]]:
+    """Get all the scene files from scene_dataset_json.
 
     Parameters
     ----------
@@ -217,25 +229,29 @@ def get_scenes(scene_dataset_json: str, data_uri: Optional[str] = None) -> List[
     -------
     scenes: List[int,str,str]
         A list of tuples(<index>, <split name>, <path to scene.json>) for each scene in scene_dataset_json.
+
     """
     if data_uri is None:
         data_uri = os.path.dirname(scene_dataset_json)
 
     dataset = open_pbobject(scene_dataset_json, SceneDataset)
     split_id_to_name = {
-        dataset_pb2.TRAIN: 'train',
-        dataset_pb2.VAL: 'val',
-        dataset_pb2.TEST: 'test',
-        dataset_pb2.TRAIN_OVERFIT: 'train_overfit',
+        dataset_pb2.TRAIN: "train",
+        dataset_pb2.VAL: "val",
+        dataset_pb2.TEST: "test",
+        dataset_pb2.TRAIN_OVERFIT: "train_overfit",
     }
 
     scenes = []
     for k in dataset.scene_splits:
-        files = [(split_id_to_name[k], os.path.join(data_uri, f)) for f in dataset.scene_splits[k].filenames]
+        files = [
+            (split_id_to_name[k], os.path.join(data_uri, f))
+            for f in dataset.scene_splits[k].filenames
+        ]
         scenes.extend(files)
-        logger.info(f'found {len(files)} in split {split_id_to_name[k]}')
+        logger.info(f"found {len(files)} in split {split_id_to_name[k]}")
 
-    logger.info(f'found {len(scenes)} in {scene_dataset_json}')
+    logger.info(f"found {len(scenes)} in {scene_dataset_json}")
 
     # Add the scene index
     scenes = [(k, *x) for k, x in enumerate(scenes)]
@@ -243,9 +259,9 @@ def get_scenes(scene_dataset_json: str, data_uri: Optional[str] = None) -> List[
     return scenes
 
 
-def chunk_scenes(scenes: List[Tuple[int, str, str]],
-                 max_len: int = 200,
-                 chunk_size: int = 100) -> List[Tuple[int, str, str, Tuple[int, int]]]:
+def chunk_scenes(
+    scenes: List[Tuple[int, str, str]], max_len: int = 200, chunk_size: int = 100
+) -> List[Tuple[int, str, str, Tuple[int, int]]]:
     """Split each scene into chunks of max length chunk_size samples.
 
     Parameters
@@ -263,6 +279,7 @@ def chunk_scenes(scenes: List[Tuple[int, str, str]],
     -------
     scenes: List[Tuple[int,str,str,Tuple[int,int]]]
         A list of scenes with (<index>, <split>, <path>, (<sample index start>, <sample index end>)) tuples
+
     """
     new_scenes = []
     # Note by using chunks, we download the same scene multiple times.
@@ -273,25 +290,27 @@ def chunk_scenes(scenes: List[Tuple[int, str, str]],
 
 
 def local_spark() -> pyspark.SparkContext:
-    """Generate a spark context for local testing of small datasets
+    """Generate a spark context for local testing of small datasets.
 
     Returns
     -------
     spark_context: A spark context
+
     """
-    spark = pyspark.sql.SparkSession.builder \
-    .master('local[*]') \
-    .appName("dgp2wicker") \
-    .config("spark.driver.memory", "56G") \
-    .config("spark.executor.memory", "56G") \
-    .config("spark.dynamicAllocation.enabled", "true") \
-    .config("spark.dynamicAllocation.maxExecutors", "4") \
-    .config("spark.dynamicAllocation.minExecutors","1") \
-    .config("spark.executor.cores", "1") \
-    .config('spark.task.maxFailures', '4') \
-    .config('spark.driver.maxResultSize','4G') \
-    .config('spark.python.worker.memory','24G')\
-    .getOrCreate()
+    spark = (
+        pyspark.sql.SparkSession.builder.master("local[*]")
+        .appName("dgp2wicker")
+        .config("spark.driver.memory", "56G")
+        .config("spark.executor.memory", "56G")
+        .config("spark.dynamicAllocation.enabled", "true")
+        .config("spark.dynamicAllocation.maxExecutors", "4")
+        .config("spark.dynamicAllocation.minExecutors", "1")
+        .config("spark.executor.cores", "1")
+        .config("spark.task.maxFailures", "4")
+        .config("spark.driver.maxResultSize", "4G")
+        .config("spark.python.worker.memory", "24G")
+        .getOrCreate()
+    )
     return spark.sparkContext
 
 
@@ -312,7 +331,7 @@ def ingest_dgp_to_wicker(
     data_uri: str = None,
     alternate_scene_uri: str = None,
 ) -> Dict[str, int]:
-    """Ingest DGP dataset into Wicker datastore
+    """Ingest DGP dataset into Wicker datastore.
 
     Parameters
     ----------
@@ -372,13 +391,14 @@ def ingest_dgp_to_wicker(
         than the rest of the scene data.
 
     """
+
     def open_scene(
         scene_json_uri: str,
         temp_dir: str,
         dataset_kwargs: Dict[str, Any],
         alternate_scene_uri: Optional[str] = None,
     ) -> Union[SynchronizedScene, ParallelDomainScene]:
-        """Utility function to download a scene and open it
+        """Utility function to download a scene and open it.
 
         Parameters
         ----------
@@ -398,33 +418,38 @@ def ingest_dgp_to_wicker(
         Returns
         -------
         dataset: A DGP dataset
+
         """
         scene_dir_uri = os.path.dirname(scene_json_uri)
         scene_json = os.path.basename(scene_json_uri)
 
-        if scene_dir_uri.startswith('s3://'):
+        if scene_dir_uri.startswith("s3://"):
             # If the scene is in s3, fetch it
             local_path = temp_dir
-            assert not temp_dir.startswith('s3'), f'{temp_dir}'
+            assert not temp_dir.startswith("s3"), f"{temp_dir}"
             if alternate_scene_uri is not None:
-                alternate_scene_dir = os.path.join(alternate_scene_uri, os.path.basename(scene_dir_uri))
-                logger.info(f'downloading additional scene data from {alternate_scene_dir} to {local_path}')
+                alternate_scene_dir = os.path.join(
+                    alternate_scene_uri, os.path.basename(scene_dir_uri)
+                )
+                logger.info(
+                    f"downloading additional scene data from {alternate_scene_dir} to {local_path}"
+                )
                 sync_dir(alternate_scene_dir, local_path)
 
-            logger.info(f'downloading scene from {scene_dir_uri} to {local_path}')
+            logger.info(f"downloading scene from {scene_dir_uri} to {local_path}")
             sync_dir(scene_dir_uri, local_path)
         else:
             # Otherwise we expect the scene is on disk somewhere, so we just ignore the temp_dir
             local_path = scene_dir_uri
-            logger.info(f'Using local scene from {scene_dir_uri}')
+            logger.info(f"Using local scene from {scene_dir_uri}")
 
         dataset_kwargs = deepcopy(dataset_kwargs)
-        dataset_kwargs['scene_json'] = os.path.join(local_path, scene_json)
+        dataset_kwargs["scene_json"] = os.path.join(local_path, scene_json)
 
-        is_pd = dataset_kwargs.pop('is_pd')
+        is_pd = dataset_kwargs.pop("is_pd")
 
         if is_pd:
-            dataset_kwargs['use_virtual_camera_datums'] = False
+            dataset_kwargs["use_virtual_camera_datums"] = False
             dataset = ParallelDomainScene(**dataset_kwargs)
         else:
             dataset = SynchronizedScene(**dataset_kwargs)
@@ -432,8 +457,10 @@ def ingest_dgp_to_wicker(
         return dataset
 
     def process_scene(
-        partition: List[Tuple[int, str, str, Tuple[int, int]]], dataset_kwargs: Dict, pipeline: List[Callable],
-        wicker_types: List[str]
+        partition: List[Tuple[int, str, str, Tuple[int, int]]],
+        dataset_kwargs: Dict,
+        pipeline: List[Callable],
+        wicker_types: List[str],
     ) -> Generator[Tuple[str, Any], None, None]:
         """Main task to parrallelize. This takes a list of scene chunks and sequentially
         downloads the scene to a temporary directory, opens the scene, applies any transformations,
@@ -458,6 +485,7 @@ def ingest_dgp_to_wicker(
         -------
         wicker_sample: (split, sample)
             Yields a wicker converted sample
+
         """
         for scene_info in partition:
             yield_count = 0
@@ -472,10 +500,13 @@ def ingest_dgp_to_wicker(
                 try:
                     # Download and open the scene
                     dataset = open_scene(
-                        scene_json_uri, temp_dir, dataset_kwargs, alternate_scene_uri=alternate_scene_uri
+                        scene_json_uri,
+                        temp_dir,
+                        dataset_kwargs,
+                        alternate_scene_uri=alternate_scene_uri,
                     )
                 except Exception as e:
-                    logger.error(f'Failed to open {scene_json_uri}, skipping...')
+                    logger.error(f"Failed to open {scene_json_uri}, skipping...")
                     logger.error(e)
                     traceback.print_exc()
                     continue
@@ -500,30 +531,34 @@ def ingest_dgp_to_wicker(
                             scene_index=int(global_scene_index),
                             sample_index_in_scene=int(sample_index_in_scene),
                             ontology_table=ontology_table,
-                            scene_uri=os.path.join(os.path.basename(scene_dir_uri), scene_json),
+                            scene_uri=os.path.join(
+                                os.path.basename(scene_dir_uri), scene_json
+                            ),
                         )
-                        #import pdb; pdb.set_trace()
+                        # import pdb; pdb.set_trace()
 
                         assert wicker_sample is not None
                         for k, v in wicker_sample.items():
-                            assert v is not None, f'{k} has invalid wicker serialized item'
+                            assert (
+                                v is not None
+                            ), f"{k} has invalid wicker serialized item"
 
                         yield_count += 1
                         yield (split, deepcopy(wicker_sample))
 
                     except Exception as e:
-                        logger.error('failed to get sample, skipping...')
+                        logger.error("failed to get sample, skipping...")
                         logger.error(e)
                         traceback.print_exc()
                         continue
 
             dt = time.time() - st
             logger.info(
-                f'Finished {global_scene_index} {split}/{scene_dir_uri}, chunk:{chunk_start}->{chunk_end}.\
-                  Yielded {yield_count}, took {dt:.2f} seconds'
+                f"Finished {global_scene_index} {split}/{scene_dir_uri}, chunk:{chunk_start}->{chunk_end}.\
+                  Yielded {yield_count}, took {dt:.2f} seconds"
             )
 
-    dataset_kwargs['is_pd'] = is_pd
+    dataset_kwargs["is_pd"] = is_pd
 
     if pipeline is None:
         pipeline = []
@@ -531,7 +566,7 @@ def ingest_dgp_to_wicker(
     # Parse the dataset json and get the scene list. This is a list of tuple split, fully qualified scene uri
     scenes = get_scenes(scene_dataset_json, data_uri=data_uri)
     if max_num_scenes is not None:
-        scenes = scenes[:int(max_num_scenes)]
+        scenes = scenes[: int(max_num_scenes)]
 
     if num_partitions is None:
         num_partitions = len(scenes)
@@ -543,8 +578,13 @@ def ingest_dgp_to_wicker(
     # TODO (chris.ochoa): generate the keys we expect for a specific combination of datums/annotations/ontologies
     _, _, scene_json_uri = scenes[0]
     with tempfile.TemporaryDirectory() as temp_dir:
-        dataset = open_scene(scene_json_uri, temp_dir, dataset_kwargs, alternate_scene_uri=alternate_scene_uri)
-        logger.info(f'Got dataset with {len(dataset)} samples')
+        dataset = open_scene(
+            scene_json_uri,
+            temp_dir,
+            dataset_kwargs,
+            alternate_scene_uri=alternate_scene_uri,
+        )
+        logger.info(f"Got dataset with {len(dataset)} samples")
         sample = dataset[0][0]
         # Apply any transformations
         for transform in pipeline:
@@ -562,7 +602,8 @@ def ingest_dgp_to_wicker(
     )
 
     wicker_dataset_schema = wicker.schema.DatasetSchema(
-        primary_keys=['scene_index', 'sample_index_in_scene'], fields=list(wicker_types.values())
+        primary_keys=["scene_index", "sample_index_in_scene"],
+        fields=list(wicker_types.values()),
     )
 
     # Chunk the scenes
@@ -578,9 +619,17 @@ def ingest_dgp_to_wicker(
     if spark_context is None:
         spark_context = local_spark()
 
-    process = partial(process_scene, dataset_kwargs=dataset_kwargs, pipeline=pipeline, wicker_types=wicker_types)
-    rdd = spark_context.parallelize(scenes,
-                                    numSlices=num_partitions).mapPartitions(process).repartition(num_repartitions)
+    process = partial(
+        process_scene,
+        dataset_kwargs=dataset_kwargs,
+        pipeline=pipeline,
+        wicker_types=wicker_types,
+    )
+    rdd = (
+        spark_context.parallelize(scenes, numSlices=num_partitions)
+        .mapPartitions(process)
+        .repartition(num_repartitions)
+    )
 
     return wsp.persist_wicker_dataset(
         wicker_dataset_name,

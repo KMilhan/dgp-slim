@@ -1,5 +1,5 @@
 # Copyright 2022 Woven Planet.  All rights reserved.
-"""Wicker conversion methods"""
+"""Wicker conversion methods."""
 # pylint: disable=arguments-renamed
 # pylint: disable=unused-argument
 # pylint: disable=missing-function-docstring
@@ -26,13 +26,12 @@ from dgp.annotations import (
     KeyPoint3DAnnotationList,
     PanopticSegmentation2DAnnotation,
     SemanticSegmentation2DAnnotation,
-    ontology,
 )
 from dgp.annotations.ontology import Ontology
 from dgp.utils.pose import Pose
 from dgp.utils.protobuf import open_ontology_pbobject
 
-WICKER_RAW_NONE_VALUE = b'\x00\x00\x00\x00'
+WICKER_RAW_NONE_VALUE = b"\x00\x00\x00\x00"
 
 # NOTE: all of these unwicker methods would be vastly simpler if we modify dgp annotations to support
 # saving/loading into file like objects. TODO: (chris.ochoa)
@@ -55,6 +54,7 @@ class WickerSerializer(ABC):
         Returns
         -------
         schema: The schema object.
+
         """
         raise NotImplementedError
 
@@ -70,6 +70,7 @@ class WickerSerializer(ABC):
         -------
         data: Any
             The converted data. This should be consumable by the schema object returned by self.schema.
+
         """
         return data
 
@@ -86,6 +87,7 @@ class WickerSerializer(ABC):
         -------
         output: Any
             The converted output
+
         """
         return raw
 
@@ -113,7 +115,7 @@ class DistortionSerializer(WickerSerializer):
 
 class PoseSerializer(WickerSerializer):
     def schema(self, name: str, data: Any):
-        return NumpyField(name, shape=(4, 4), dtype='float64')
+        return NumpyField(name, shape=(4, 4), dtype="float64")
 
     def serialize(self, pose: Pose) -> np.ndarray:
         return pose.matrix.astype(np.float64)
@@ -124,7 +126,7 @@ class PoseSerializer(WickerSerializer):
 
 class IntrinsicsSerializer(WickerSerializer):
     def schema(self, name: str, data: Any):
-        return NumpyField(name, shape=(3, 3), dtype='float32')
+        return NumpyField(name, shape=(3, 3), dtype="float32")
 
     def serialize(self, K: np.ndarray) -> np.ndarray:
         return K.astype(np.float32)
@@ -147,14 +149,16 @@ class PointCloudSerializer(WickerSerializer):
     def schema(self, name: str, data: Any):
         # Support shapes like (N,3) for points, (N,) for offsets, (N,3,3) for covariances etc
         shp = (-1, *data.shape[1:])
-        return NumpyField(name, shape=shp, dtype='float32', is_heavy_pointer=True)
+        return NumpyField(name, shape=shp, dtype="float32", is_heavy_pointer=True)
 
     def serialize(self, point_cloud: np.ndarray) -> np.ndarray:
         return point_cloud.astype(np.float32)
 
 
 class BoundingBox2DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self._ontology = None
 
@@ -182,7 +186,9 @@ class BoundingBox2DSerializer(WickerSerializer):
 
 
 class BoundingBox3DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.ontology = None
 
@@ -210,7 +216,9 @@ class BoundingBox3DSerializer(WickerSerializer):
 
 
 class SemanticSegmentation2DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.ontology = None
 
@@ -244,7 +252,9 @@ class SemanticSegmentation2DSerializer(WickerSerializer):
 
 
 class InstanceSegmentation2DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self.ontology = None
 
@@ -265,34 +275,42 @@ class InstanceSegmentation2DSerializer(WickerSerializer):
 
         _, buffer = cv2.imencode(".png", annotation.panoptic_image)
         panoptic_image = io.BytesIO(buffer).getvalue()
-        index_to_label = json.dumps(annotation.index_to_label).encode('utf-8')
+        index_to_label = json.dumps(annotation.index_to_label).encode("utf-8")
         ann_bytes = {
-            'panoptic_image': base64.b64encode(panoptic_image).decode(),
-            'index_to_label': base64.b64encode(index_to_label).decode()
+            "panoptic_image": base64.b64encode(panoptic_image).decode(),
+            "index_to_label": base64.b64encode(index_to_label).decode(),
         }
-        return json.dumps(ann_bytes).encode('utf-8')
+        return json.dumps(ann_bytes).encode("utf-8")
 
     def unserialize(self, raw: bytes) -> PanopticSegmentation2DAnnotation:
         if raw == WICKER_RAW_NONE_VALUE or self.ontology is None:
             return None
 
         raw_dict = json.loads(raw)
-        raw_bytes = io.BytesIO(base64.b64decode(raw_dict['panoptic_image']))
-        panoptic_image = cv2.imdecode(np.frombuffer(raw_bytes.getbuffer(), np.uint8), cv2.IMREAD_UNCHANGED)
+        raw_bytes = io.BytesIO(base64.b64decode(raw_dict["panoptic_image"]))
+        panoptic_image = cv2.imdecode(
+            np.frombuffer(raw_bytes.getbuffer(), np.uint8), cv2.IMREAD_UNCHANGED
+        )
         if len(panoptic_image.shape) == 3:
             _L = panoptic_image
             label_map = _L[:, :, 2] + 256 * _L[:, :, 1] + 256 * 256 * _L[:, :, 0]
-            panoptic_image = label_map.astype(PanopticSegmentation2DAnnotation.DEFAULT_PANOPTIC_IMAGE_DTYPE)
+            panoptic_image = label_map.astype(
+                PanopticSegmentation2DAnnotation.DEFAULT_PANOPTIC_IMAGE_DTYPE
+            )
 
-        raw_bytes = io.BytesIO(base64.b64decode(raw_dict['index_to_label']))
+        raw_bytes = io.BytesIO(base64.b64decode(raw_dict["index_to_label"]))
         index_to_label = json.loads(raw_bytes.getvalue())
 
-        return PanopticSegmentation2DAnnotation(self.ontology, panoptic_image, index_to_label)
+        return PanopticSegmentation2DAnnotation(
+            self.ontology, panoptic_image, index_to_label
+        )
 
 
-class DepthSerializer():
+class DepthSerializer:
     def schema(self, name: str, data: DenseDepthAnnotation):
-        return NumpyField(name, shape=data.depth.shape, dtype='float32', is_heavy_pointer=True)
+        return NumpyField(
+            name, shape=data.depth.shape, dtype="float32", is_heavy_pointer=True
+        )
 
     def serialize(self, depth: DenseDepthAnnotation) -> np.ndarray:
         return depth.depth.astype(np.float32)
@@ -301,7 +319,7 @@ class DepthSerializer():
         return DenseDepthAnnotation(raw)
 
 
-class OntologySerializer():
+class OntologySerializer:
     def __init__(self, ontology_type: str):
         super().__init__()
         self.ontology_type = ontology_type
@@ -321,7 +339,9 @@ class OntologySerializer():
 
 
 class KeyPoint2DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self._ontology = None
 
@@ -349,7 +369,9 @@ class KeyPoint2DSerializer(WickerSerializer):
 
 
 class KeyLine2DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self._ontology = None
 
@@ -377,7 +399,9 @@ class KeyLine2DSerializer(WickerSerializer):
 
 
 class KeyPoint3DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self._ontology = None
 
@@ -405,7 +429,9 @@ class KeyPoint3DSerializer(WickerSerializer):
 
 
 class KeyLine3DSerializer(WickerSerializer):
-    def __init__(self, ):
+    def __init__(
+        self,
+    ):
         super().__init__()
         self._ontology = None
 

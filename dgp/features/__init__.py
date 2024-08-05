@@ -7,5 +7,5 @@ FEATURE_ONTOLOGY_REGISTRY = {
     "agent_2d": AgentFeatureOntology,
     "agent_3d": AgentFeatureOntology,
     "ego_intention": AgentFeatureOntology,
-    "parked_car": AgentFeatureOntology
+    "parked_car": AgentFeatureOntology,
 }

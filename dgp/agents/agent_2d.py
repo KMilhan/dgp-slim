@@ -15,16 +15,19 @@ class AgentSnapshot2DList(AgentSnapshotList):
     ----------
     ontology: BoundingBoxOntology
         Ontology for 2D bounding box tasks.
-    
+
     TODO : Add support for BoundingBox2DAnnotationList.
     boxlist: list[BoundingBox2D]
         List of BoundingBox2D objects. See `utils/structures/bounding_box_2d`
         for more details.
+
     """
+
     def __init__(self, ontology, boxlist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, BoundingBoxOntology), "Trying to load AgentSnapshot2DList with wrong type of " \
-                                                                "ontology!"
+        assert isinstance(self._ontology, BoundingBoxOntology), (
+            "Trying to load AgentSnapshot2DList with wrong type of " "ontology!"
+        )
 
         for box in boxlist:
             assert isinstance(
@@ -58,23 +61,39 @@ class AgentSnapshot2DList(AgentSnapshotList):
         -------
         AgentSnapshot2DList
             Agent Snapshot list object instantiated from proto object.
+
         """
         boxlist = []
         for agent_snapshot_2d in agent_snapshots_pb2:
             feature_type = agent_snapshot_2d.agent_snapshot_2D.feature_type
-            feature_ontology = feature_ontology_table[FEATURE_TYPE_ID_TO_KEY[feature_type]]
+            feature_ontology = feature_ontology_table[
+                FEATURE_TYPE_ID_TO_KEY[feature_type]
+            ]
             boxlist.append(
                 BoundingBox2D(
-                    box=np.float32([
-                        agent_snapshot_2d.agent_snapshot_2D.box.x, agent_snapshot_2d.agent_snapshot_2D.box.y,
-                        agent_snapshot_2d.agent_snapshot_2D.box.w, agent_snapshot_2d.agent_snapshot_2D.box.h
-                    ]),
-                    class_id=ontology.class_id_to_contiguous_id[agent_snapshot_2d.agent_snapshots_2D.class_id],
+                    box=np.float32(
+                        [
+                            agent_snapshot_2d.agent_snapshot_2D.box.x,
+                            agent_snapshot_2d.agent_snapshot_2D.box.y,
+                            agent_snapshot_2d.agent_snapshot_2D.box.w,
+                            agent_snapshot_2d.agent_snapshot_2D.box.h,
+                        ]
+                    ),
+                    class_id=ontology.class_id_to_contiguous_id[
+                        agent_snapshot_2d.agent_snapshots_2D.class_id
+                    ],
                     instance_id=agent_snapshot_2d.agent_snapshot_2D.instance_id,
-                    color=ontology.colormap[agent_snapshot_2d.agent_snapshot_2D.class_id],
-                    attributes=dict([(feature_ontology.id_to_name[feature_id], feature)
-                                     for feature_id, feature in enumerate(agent_snapshot_2d.agent_snapshot_2D.features)]
-                                    ),
+                    color=ontology.colormap[
+                        agent_snapshot_2d.agent_snapshot_2D.class_id
+                    ],
+                    attributes=dict(
+                        [
+                            (feature_ontology.id_to_name[feature_id], feature)
+                            for feature_id, feature in enumerate(
+                                agent_snapshot_2d.agent_snapshot_2D.features
+                            )
+                        ]
+                    ),
                 )
             )
 
@@ -84,7 +103,7 @@ class AgentSnapshot2DList(AgentSnapshotList):
         return len(self.boxlist)
 
     def __getitem__(self, index):
-        """Return a single 3D bounding box"""
+        """Return a single 3D bounding box."""
         return self.boxlist[index]
 
     def render(self):

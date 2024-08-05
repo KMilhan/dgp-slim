@@ -3,12 +3,11 @@ import hashlib
 from collections import OrderedDict
 
 import numpy as np
-import pycocotools.mask as mask_util
 
 GENERIC_OBJECT_CLASS = 1
 
 
-class InstanceMask2D():
+class InstanceMask2D:
     """2D instance mask object.
 
     Parameters
@@ -26,8 +25,17 @@ class InstanceMask2D():
     attributes: dict, default: None
         Dictionary of attributes associated with instance mask. If None provided,
         defaults to empty dict.
+
     """
-    def __init__(self, mask, class_id=GENERIC_OBJECT_CLASS, instance_id=None, color=(0, 0, 0), attributes=None):
+
+    def __init__(
+        self,
+        mask,
+        class_id=GENERIC_OBJECT_CLASS,
+        instance_id=None,
+        color=(0, 0, 0),
+        attributes=None,
+    ):
         assert mask.dtype in (bool, np.uint8, np.int64)
         self._bitmask = mask
 
@@ -48,6 +56,7 @@ class InstanceMask2D():
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
 
@@ -84,10 +93,14 @@ class InstanceMask2D():
 
     @property
     def hexdigest(self):
-        return hashlib.md5(self.bitmask.tobytes() + bytes(self._class_id) + bytes(self._instance_id)).hexdigest()
+        return hashlib.md5(
+            self.bitmask.tobytes() + bytes(self._class_id) + bytes(self._instance_id)
+        ).hexdigest()
 
     def __repr__(self):
-        return "{}[Class: {}, Attributes: {}]".format(self.__class__.__name__, self.class_id, self.attributes)
+        return "{}[Class: {}, Attributes: {}]".format(
+            self.__class__.__name__, self.class_id, self.attributes
+        )
 
     def __eq__(self, other):
         return self.hexdigest == other.hexdigest
@@ -104,16 +117,12 @@ class InstanceMask2D():
         -------
         image: PIL.Image or np.ndarray
             Image with boxes rendered
+
         """
         raise NotImplementedError
 
-    @property
-    def rle(self):
-        _rle = mask_util.encode(np.array(self.bitmask, np.uint8, order='F'))
-        return RLEMask(_rle['size'], _rle['counts'])
 
-
-class RLEMask():
+class RLEMask:
     """Container of RLE-encoded mask.
 
     See https://github.com/cocodataset/cocoapi/blob/master/PythonAPI/pycocotools/mask.py for RLE format.
@@ -124,10 +133,12 @@ class RLEMask():
         Height and width of mask.
     counts: list[int]
         Count-encoding of RLE format.
+
     """
+
     def __init__(self, size, counts):
         self.size = size
         self.counts = counts
 
     def to_dict(self):
-        return OrderedDict([('size', self.size), ('counts', self.counts)])
+        return OrderedDict([("size", self.size), ("counts", self.counts)])

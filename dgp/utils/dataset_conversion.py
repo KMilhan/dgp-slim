@@ -1,5 +1,5 @@
 # Copyright 2019-2021 Toyota Research Institute.  All rights reserved.
-"""Useful utilities for pre-processing datasets"""
+"""Useful utilities for pre-processing datasets."""
 import datetime
 import hashlib
 import logging
@@ -8,19 +8,17 @@ import os
 import sys
 from collections import OrderedDict
 from functools import lru_cache
+from multiprocessing import Pool, cpu_count
+from pathlib import Path
 
 import numpy as np
-from google.protobuf.timestamp_pb2 import Timestamp
 from PIL import Image, ImageStat
-from torch.multiprocessing import Pool, cpu_count
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from dgp.proto import dataset_pb2
 from dgp.proto.dataset_pb2 import SceneDataset
-from dgp.utils.cloud.s3 import s3_copy
 from dgp.utils.protobuf import (
-    open_pbobject,
-    open_remote_pb_object,
-    save_pbobject_as_json,
+    save_pbobject_as_json, parse_pbobject,
 )
 
 NUMPY_ENDIANNESS_MAP = {
@@ -38,7 +36,7 @@ NUMPY_CTYPES_MAP = {
     "int": np.intc,
     "uint": np.uintc,
     "float": np.float32,
-    "double": np.float64
+    "double": np.float64,
 }
 
 
@@ -54,8 +52,10 @@ def _write_point_cloud(filename, X):
     np.savez_compressed(filename, data=X)
 
 
-def write_cloud_ply(file, points, intensities=None, timestamps=None):  # pylint: disable=W9015
-    """Write pointcloud and, if provided, intensities and timestamps to PLY standard output
+def write_cloud_ply(
+        file, points, intensities=None, timestamps=None
+):  # pylint: disable=W9015
+    """Write pointcloud and, if provided, intensities and timestamps to PLY standard output.
 
     Parameters
     ----------
@@ -70,9 +70,12 @@ def write_cloud_ply(file, points, intensities=None, timestamps=None):  # pylint:
 
     timestamps: numpy array [N, ] float64
         Array of measurements timestamps
+
     """
     if intensities is not None:
-        assert intensities.dtype == np.uint8, f"'intensities' must be of type uint8 but are {intensities.dtype}"
+        assert (
+                intensities.dtype == np.uint8
+        ), f"'intensities' must be of type uint8 but are {intensities.dtype}"
     assert file.endswith("ply"), f"Extension of {file} must be 'ply'"
 
     list_data = [points.astype(np.float64)]
@@ -94,7 +97,7 @@ def write_cloud_ply(file, points, intensities=None, timestamps=None):  # pylint:
 
 
 def read_cloud_ply(file):
-    """Read pointcloud PLY file into numpy array(s)
+    """Read pointcloud PLY file into numpy array(s).
 
     Parameters
     ----------
@@ -110,17 +113,18 @@ def read_cloud_ply(file):
             If present in source file, measured intensities. Otherwise empty array
         - timestamps: numpy array [N, ]
             If present in source file, array of measurements timestamps. Otherwise empty array
+
     Raises
     ------
     TypeError
         Raised if data type is not supported
+
     """
     properties = []
     properties_types = []
     number_points = None
 
-    with open(file, "rb") as f, \
-            mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as s:
+    with open(file, "rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as s:
         i = 0
         while True:
             line = s.readline().decode("ascii").rstrip()
@@ -141,27 +145,39 @@ def read_cloud_ply(file):
             else:
                 raise TypeError(f"Type {_type} is not supported")
         data = np.fromfile(f, dtype=properties_types[0], offset=s.tell())
-        assert data.size % len(properties) == 0, (
-            f"Data length not divisible by number of columns in {file}. Possibly file is corrupted"
-        )
+        assert (
+                data.size % len(properties) == 0
+        ), f"Data length not divisible by number of columns in {file}. Possibly file is corrupted"
         data = data.reshape((-1, len(properties)))
-        assert data.shape[0] == number_points, (
-            f"Number of points loaded from {file} different from expected. Possibly file is corrupted"
-        )
+        assert (
+                data.shape[0] == number_points
+        ), f"Number of points loaded from {file} different from expected. Possibly file is corrupted"
 
         points = np.empty(0)
         intensities = np.empty(0)
         timestamps = np.empty(0)
 
         points_idx = [properties.index(k) for k in ["x", "y", "z"]]
-        intensities_idx = [properties.index(k) for k in ["intensity"] if k in properties]
-        timestamps_idx = [properties.index(k) for k in ["timestamps"] if k in properties]
+        intensities_idx = [
+            properties.index(k) for k in ["intensity"] if k in properties
+        ]
+        timestamps_idx = [
+            properties.index(k) for k in ["timestamps"] if k in properties
+        ]
         if points_idx:
             points = data[:, points_idx].astype(properties_types[points_idx[0]])
         if intensities_idx:
-            intensities = data[:, intensities_idx].astype(properties_types[intensities_idx[0]]).ravel()
+            intensities = (
+                data[:, intensities_idx]
+                .astype(properties_types[intensities_idx[0]])
+                .ravel()
+            )
         if timestamps_idx:
-            timestamps = data[:, timestamps_idx].astype(properties_types[timestamps_idx[0]]).ravel()
+            timestamps = (
+                data[:, timestamps_idx]
+                .astype(properties_types[timestamps_idx[0]])
+                .ravel()
+            )
 
         return tuple([points, intensities, timestamps])
 
@@ -172,9 +188,11 @@ def _write_annotation(filename, annotation):
     save_pbobject_as_json(annotation, filename)
 
 
-def compute_image_statistics(image_list, image_open_fn, single_process=False, num_processes=None):
+def compute_image_statistics(
+        image_list, image_open_fn, single_process=False, num_processes=None
+):
     """Given a list of images (paths to files), return the per channel mean and stdev.
-    Also returns a dictionary mapping filename to image size
+    Also returns a dictionary mapping filename to image size.
 
     Parameters
     ----------
@@ -206,8 +224,8 @@ def compute_image_statistics(image_list, image_open_fn, single_process=False, nu
     ------
     ValueError
         Raised if all the images are invalid extensions.
-    """
 
+    """
     valid_extensions = (
         ".jpg",
         ".jpeg",
@@ -217,14 +235,18 @@ def compute_image_statistics(image_list, image_open_fn, single_process=False, nu
         ".tiff",
         ".dat",
     )
-    image_list = list(filter(lambda x: x.lower().endswith(valid_extensions), image_list))
+    image_list = list(
+        filter(lambda x: x.lower().endswith(valid_extensions), image_list)
+    )
     if not image_list:
         raise ValueError("There are no valid images for image statistics calculation.")
 
     if single_process:
         image_stats_per_process = []
         for idx, image in enumerate(image_list):
-            image_stats_per_process.append(_get_image_stats([image], idx, len(image_list), image_open_fn))
+            image_stats_per_process.append(
+                _get_image_stats([image], idx, len(image_list), image_open_fn)
+            )
     else:
         num_processes = num_processes or cpu_count()
         if len(image_list) < num_processes:
@@ -234,11 +256,18 @@ def compute_image_statistics(image_list, image_open_fn, single_process=False, nu
 
         with Pool(num_processes) as p:
             image_stats_per_process = p.starmap(
-                _get_image_stats, [(image_list[i:i + chunk_size], i, num_processes, image_open_fn)
-                                   for i in range(0, len(image_list), chunk_size)]
+                _get_image_stats,
+                [
+                    (image_list[i: i + chunk_size], i, num_processes, image_open_fn)
+                    for i in range(0, len(image_list), chunk_size)
+                ],
             )
 
-    global_mean, global_var, all_image_sizes = np.array([0., 0., 0.]), np.array([0., 0., 0.]), {}
+    global_mean, global_var, all_image_sizes = (
+        np.array([0.0, 0.0, 0.0]),
+        np.array([0.0, 0.0, 0.0]),
+        {},
+    )
     for means, variances, image_sizes in image_stats_per_process:
         global_mean += means
         global_var += variances
@@ -254,15 +283,18 @@ def rgb2id(color):
     """Function converting color to instance id.
     This function the the conversion function used by COCO dataset.
     We adapted this function from the panoptic api:
-    ```https://github.com/cocodataset/panopticapi```
-    Parameters
+    ```https://github.com/cocodataset/panopticapi```.
+
+    Parameters.
     ----------
     color: list
         A list of 3 channel color intensity in rgb.
+
     Returns
     -------
     id: int
         A single id encoded by the 3 channel color intensity.
+
     """
     if isinstance(color, np.ndarray) and len(color.shape) == 3:
         if color.dtype == np.uint8:
@@ -275,15 +307,18 @@ def bgr2id(color):
     """Function converting color to instance id.
     This function the the conversion function used by COCO dataset.
     We adapted this function from the panoptic api:
-    ```https://github.com/cocodataset/panopticapi```
-    Parameters
+    ```https://github.com/cocodataset/panopticapi```.
+
+    Parameters.
     ----------
     color: list
         A list of 3 channel color intensity in rgb.
+
     Returns
     -------
     id: int
         A single id encoded by the 3 channel color intensity.
+
     """
     if isinstance(color, np.ndarray) and len(color.shape) == 3:
         if color.dtype == np.uint8:
@@ -293,30 +328,36 @@ def bgr2id(color):
 
 
 def _get_image_stats(image_sub_list, process_index, num_processes, image_open_fn):
-    """Given a list of images, computes the mean, stddev, and image size"""
-    mean, stddev, image_sizes = np.array([0., 0., 0.]), np.array([0., 0., 0.]), {}
+    """Given a list of images, computes the mean, stddev, and image size."""
+    mean, stddev, image_sizes = np.array([0.0, 0.0, 0.0]), np.array([0.0, 0.0, 0.0]), {}
 
     for i, image_file in enumerate(image_sub_list):
         image = image_open_fn(image_file)
         image_stats = ImageStat.Stat(image)
-        channels = 3 if image.mode == 'RGB' else 1
+        channels = 3 if image.mode == "RGB" else 1
 
         if channels == 3:
             mean += np.array(image_stats.mean)
             stddev += np.array(image_stats.stddev)
 
         width, height = image.size
-        image_sizes.update({image_file: {"channels": channels, "height": height, "width": width}})
+        image_sizes.update(
+            {image_file: {"channels": channels, "height": height, "width": width}}
+        )
 
         if i % 100 == 0 and process_index == 0:
-            logging.info("Completed {:d} images per process, with {:d} processes running".format(i, num_processes))
+            logging.info(
+                "Completed {:d} images per process, with {:d} processes running".format(
+                    i, num_processes
+                )
+            )
 
     return mean, stddev, image_sizes
 
 
 def generate_uid_from_image(image):
     """Given a unique identifier, return the SHA1 hash hexdigest.
-    Used for creating unique frame IDs
+    Used for creating unique frame IDs.
 
     Parameters
     ----------
@@ -326,6 +367,7 @@ def generate_uid_from_image(image):
     Returns
     -------
     Hexdigest of image content
+
     """
     image = np.uint8(image.convert("RGB"))
     return hashlib.sha1(image).hexdigest()
@@ -349,11 +391,14 @@ def generate_uid_from_semantic_segmentation_2d_annotation(annotation):
         Raised if annotation is not of type np.uint8.
     ValueError
         Raised if annotation is not 2-dimensional.
+
     """
     if annotation.dtype != np.uint8:
-        raise TypeError('`annotation` should be of type np.uint8')
+        raise TypeError("`annotation` should be of type np.uint8")
     if len(annotation.shape) != 2:
-        raise ValueError('`annotation` should be two-dimensional (one class ID per pixel)')
+        raise ValueError(
+            "`annotation` should be two-dimensional (one class ID per pixel)"
+        )
     return hashlib.sha1(annotation).hexdigest()
 
 
@@ -375,17 +420,20 @@ def generate_uid_from_instance_segmentation_2d_annotation(annotation):
         Raised if annotation is not of type np.uint16 or np.uint23.
     ValueError
         Raised if annotation is not 2-dimensional.
+
     """
     if annotation.dtype not in (np.uint16, np.uint32):
-        raise TypeError('`annotation` should be of type np.uint16 or np.uint32')
+        raise TypeError("`annotation` should be of type np.uint16 or np.uint32")
     if len(annotation.shape) != 2:
-        raise ValueError('`annotation` should be two-dimensional (one instance ID per pixel)')
+        raise ValueError(
+            "`annotation` should be two-dimensional (one instance ID per pixel)"
+        )
     return hashlib.sha1(annotation).hexdigest()
 
 
 def generate_uid_from_point_cloud(point_cloud):
     """Given a unique identifier, return the SHA1 hash hexdigest.
-    Used for creating unique datum IDs
+    Used for creating unique datum IDs.
 
     Parameters
     ----------
@@ -395,12 +443,13 @@ def generate_uid_from_point_cloud(point_cloud):
     Returns
     -------
     Hexdigest of point cloud
+
     """
     return hashlib.sha1(point_cloud).hexdigest()
 
 
 def parse_all_files_in_directory(directory):
-    """Walk through subdirectories and pull all filenames
+    """Walk through subdirectories and pull all filenames.
 
     Parameters
     ----------
@@ -411,9 +460,10 @@ def parse_all_files_in_directory(directory):
     -------
     file_list: list
         Full paths to the files in all subdirectories
+
     """
     file_list = []
-    for (dirpath, _, filenames) in os.walk(directory):
+    for dirpath, _, filenames in os.walk(directory):
         file_list.extend([os.path.join(dirpath, file) for file in filenames])
     return file_list
 
@@ -432,13 +482,14 @@ def make_dir(dir_path, exist_ok=False):
     -------
     dir_path: str
         Created directory name
+
     """
     os.makedirs(dir_path, exist_ok=exist_ok)
     return dir_path
 
 
 def get_date():
-    """Get today's date. In format yyyy-mm-dd"""
+    """Get today's date. In format yyyy-mm-dd."""
     return datetime.date.today().strftime("%Y-%m-%d")
 
 
@@ -449,6 +500,7 @@ def get_datetime_proto():
     -------
     datetime_proto: google.protobuf.timestamp_pb2.Timestamp
         Current date time proto object in UTC.
+
     """
     timestamp = Timestamp()
     timestamp.GetCurrentTime()
@@ -460,14 +512,15 @@ class DatasetGen:
     DESCRIPTION = ""
     PUBLIC = True
     EMAIL = "ml@tri.global"
-    NAME_TO_ID = OrderedDict()
-    ID_TO_NAME = OrderedDict()
-    IS_THING = OrderedDict()
-    COLORMAP = OrderedDict()
+    NAME_TO_ID = OrderedDict()  # type: ignore
+    ID_TO_NAME = OrderedDict()  # type: ignore
+    IS_THING = OrderedDict()  # type: ignore
+    COLORMAP = OrderedDict()  # type: ignore
 
     def __init__(self, version, raw_path, local_output_path):
         """Parse raw data into the DGP format given directories.
-        Parameters
+
+        Parameters.
         ----------
         version: int
             Version of the dataset
@@ -475,6 +528,7 @@ class DatasetGen:
             Path to original files for dataset (should match public format)
         local_output_path: str, default: None
             Local path to save merged scene dataset JSON
+
         """
         self.version = version
         self.raw_path = raw_path
@@ -497,17 +551,19 @@ class DatasetGen:
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
 
     def populate_metadata(self):
         """Populate boilerplate fields for dataset conversion. Statistics, size, etc...
-        are recomputed during conversion
+        are recomputed during conversion.
 
         Raises
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
 
@@ -518,6 +574,7 @@ class DatasetGen:
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
 
@@ -528,6 +585,7 @@ class DatasetGen:
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
 
@@ -544,6 +602,7 @@ class DatasetGen:
         -------
         PIL.Image
             Image that was opened.
+
         """
         return Image.open(filename)
 
@@ -559,34 +618,28 @@ class DatasetGen:
         -------
         scene_dataset_json_path: str
             Path of the scene dataset JSON file created.
+
         """
         scene_dataset_json_path = os.path.join(
             self.local_output_path,
-            '{}_v{}.json'.format(self.scene_dataset_pb2.metadata.name, self.scene_dataset_pb2.metadata.version)
+            "{}_v{}.json".format(
+                self.scene_dataset_pb2.metadata.name,
+                self.scene_dataset_pb2.metadata.version,
+            ),
         )
         save_pbobject_as_json(self.scene_dataset_pb2, scene_dataset_json_path)
 
         # Printing SceneDataset scene counts per split (post-merging)
-        logging.info('-' * 80)
+        logging.info("-" * 80)
         logging.info(
-            'Output SceneDataset {} has: {} train, {} val, {} test'.format(
-                scene_dataset_json_path, len(self.scene_dataset_pb2.scene_splits[dataset_pb2.TRAIN].filenames),
+            "Output SceneDataset {} has: {} train, {} val, {} test".format(
+                scene_dataset_json_path,
+                len(self.scene_dataset_pb2.scene_splits[dataset_pb2.TRAIN].filenames),
                 len(self.scene_dataset_pb2.scene_splits[dataset_pb2.VAL].filenames),
-                len(self.scene_dataset_pb2.scene_splits[dataset_pb2.TEST].filenames)
+                len(self.scene_dataset_pb2.scene_splits[dataset_pb2.TEST].filenames),
             )
         )
 
-        s3_path = os.path.join(
-            self.scene_dataset_pb2.metadata.bucket_path.value, os.path.basename(scene_dataset_json_path)
-        )
-        if upload:
-            s3_copy(scene_dataset_json_path, s3_path)
-
-        else:
-            logging.info(
-                'Upload the DGP-compliant scene dataset JSON to s3 via `aws s3 cp --acl bucket-owner-full-control {} {}`'
-                .format(scene_dataset_json_path, s3_path)
-            )
         return scene_dataset_json_path
 
 
@@ -617,26 +670,33 @@ class MergeSceneDatasetGen:
         Email of the dataset creator
 
     """
+
     def __init__(
-        self,
-        scene_dataset_json_paths,
-        description,
-        version,
-        local_output_path=None,
-        bucket_path=None,
-        name=None,
-        email=None,
+            self,
+            scene_dataset_json_paths,
+            description,
+            version,
+            local_output_path=None,
+            bucket_path=None,
+            name=None,
+            email=None,
     ):
-        assert len(scene_dataset_json_paths) >= 2, \
-            'At least 2 scene datasets required in order to merge'
+        assert (
+                len(scene_dataset_json_paths) >= 2
+        ), "At least 2 scene datasets required in order to merge"
         self.scene_dataset_json_paths = scene_dataset_json_paths
-        assert all([f.endswith('.json') for f in scene_dataset_json_paths]), 'Invalid scene dataset JSON.'
+        assert all(
+            [f.endswith(".json") for f in scene_dataset_json_paths]
+        ), "Invalid scene dataset JSON."
         self.scene_datasets = [
-            open_remote_pb_object(f, SceneDataset) if f.startswith('s3://') else open_pbobject(f, SceneDataset)
+            (
+                parse_pbobject(Path(f).read_text(), SceneDataset)
+            )
             for f in scene_dataset_json_paths
         ]
-        assert all([item is not None for item in self.scene_datasets]), \
-            'Some of the scene dataset failed to load'
+        assert all(
+            [item is not None for item in self.scene_datasets]
+        ), "Some of the scene dataset failed to load"
 
         self.local_output_path = local_output_path
         self.scene_dataset_pb2 = SceneDataset()
@@ -649,42 +709,53 @@ class MergeSceneDatasetGen:
 
         # raw_path for merged dataset is combination of *bucket_paths* for input datasets
         self.scene_dataset_pb2.metadata.raw_path.value = ",".join(
-            set([
-                scene_dataset.metadata.bucket_path.value  # NOTE: *bucket_path*
-                for scene_dataset in self.scene_datasets
-                if scene_dataset.metadata.bucket_path.value
-            ])
+            set(
+                [
+                    scene_dataset.metadata.bucket_path.value  # NOTE: *bucket_path*
+                    for scene_dataset in self.scene_datasets
+                    if scene_dataset.metadata.bucket_path.value
+                ]
+            )
         )
 
         # bucket_path is specified by the user (and defaults to the bucket_path of the first dataset)
-        assert bucket_path is None or bucket_path.startswith('s3://')
-        self.scene_dataset_pb2.metadata.bucket_path.value = bucket_path or self.scene_datasets[
-            0].metadata.bucket_path.value
+        assert bucket_path is None or bucket_path.startswith("s3://")
+        self.scene_dataset_pb2.metadata.bucket_path.value = (
+                bucket_path or self.scene_datasets[0].metadata.bucket_path.value
+        )
 
         # Write in available annotation types
         ann_types = []
         for scene_dataset in self.scene_datasets:
             ann_types.extend(scene_dataset.metadata.available_annotation_types)
-        self.scene_dataset_pb2.metadata.available_annotation_types.extend(set(ann_types))
+        self.scene_dataset_pb2.metadata.available_annotation_types.extend(
+            set(ann_types)
+        )
 
         # Dataset name and creator email
-        self.scene_dataset_pb2.metadata.name = name or self.scene_datasets[0].metadata.name
-        self.scene_dataset_pb2.metadata.creator = email or self.scene_datasets[0].metadata.creator
+        self.scene_dataset_pb2.metadata.name = (
+                name or self.scene_datasets[0].metadata.name
+        )
+        self.scene_dataset_pb2.metadata.creator = (
+                email or self.scene_datasets[0].metadata.creator
+        )
 
     def merge_scene_split_files(self):
-        """Aggregate scene JSON paths together.
-        """
+        """Aggregate scene JSON paths together."""
         # Look-up from scene directory to which dataset contains the latest scene_<sha1>.json for that scene
         scene_dir_to_dataset_index = {}
 
         # Printing individual SceneDataset scene counts per split
-        for scene_dataset, scene_dataset_json_path in zip(self.scene_datasets, self.scene_dataset_json_paths):
-            logging.info('-' * 80)
+        for scene_dataset, scene_dataset_json_path in zip(
+                self.scene_datasets, self.scene_dataset_json_paths
+        ):
+            logging.info("-" * 80)
             logging.info(
-                'SceneDataset {} has: {} train, {} val, {} test'.format(
-                    scene_dataset_json_path, len(scene_dataset.scene_splits[dataset_pb2.TRAIN].filenames),
+                "SceneDataset {} has: {} train, {} val, {} test".format(
+                    scene_dataset_json_path,
+                    len(scene_dataset.scene_splits[dataset_pb2.TRAIN].filenames),
                     len(scene_dataset.scene_splits[dataset_pb2.VAL].filenames),
-                    len(scene_dataset.scene_splits[dataset_pb2.TEST].filenames)
+                    len(scene_dataset.scene_splits[dataset_pb2.TEST].filenames),
                 )
             )
 
@@ -704,20 +775,10 @@ class MergeSceneDatasetGen:
         for dataset_idx, scene_dataset in enumerate(self.scene_datasets):
             for split_id, scene_files in scene_dataset.scene_splits.items():
                 for scene_file in scene_files.filenames:
-                    if dataset_idx == scene_dir_to_dataset_index[os.path.dirname(scene_file)]:
-                        self.scene_dataset_pb2.scene_splits[split_id].filenames.extend([scene_file])
-
-    def write_dataset(self, upload=False):
-        """Write the final scene dataset JSON.
-
-        Parameters
-        ----------
-        upload: bool, optional
-            If true, upload the dataset to the scene pool in s3. Default: False.
-
-        Returns
-        -------
-        scene_dataset_json_path: str
-            Path of the scene dataset JSON file created.
-        """
-        return DatasetGen.write_dataset(self, upload)
+                    if (
+                            dataset_idx
+                            == scene_dir_to_dataset_index[os.path.dirname(scene_file)]
+                    ):
+                        self.scene_dataset_pb2.scene_splits[split_id].filenames.extend(
+                            [scene_file]
+                        )

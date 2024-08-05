@@ -14,14 +14,36 @@ from dgp.annotations.ontology import (
 
 # Ontologies are used in Annotations, hence import ordering
 from dgp.annotations.base_annotation import Annotation  # isort:skip
-from dgp.annotations.bounding_box_2d_annotation import BoundingBox2DAnnotationList  # isort:skip
-from dgp.annotations.bounding_box_3d_annotation import BoundingBox3DAnnotationList  # isort:skip
-from dgp.annotations.panoptic_segmentation_2d_annotation import PanopticSegmentation2DAnnotation  # isort:skip
-from dgp.annotations.semantic_segmentation_2d_annotation import SemanticSegmentation2DAnnotation  # isort:skip
+from dgp.annotations.bounding_box_2d_annotation import (
+    BoundingBox2DAnnotationList,
+)
+
+# isort:skip
+from dgp.annotations.bounding_box_3d_annotation import (
+    BoundingBox3DAnnotationList,
+)
+
+# isort:skip
+from dgp.annotations.panoptic_segmentation_2d_annotation import (
+    PanopticSegmentation2DAnnotation,
+)
+
+# isort:skip
+from dgp.annotations.semantic_segmentation_2d_annotation import (
+    SemanticSegmentation2DAnnotation,
+)
+
 from dgp.annotations.key_line_2d_annotation import KeyLine2DAnnotationList  # isort:skip
 from dgp.annotations.key_line_3d_annotation import KeyLine3DAnnotationList  # isort:skip
-from dgp.annotations.key_point_2d_annotation import KeyPoint2DAnnotationList  # isort:skip
-from dgp.annotations.key_point_3d_annotation import KeyPoint3DAnnotationList  # isort:skip
+from dgp.annotations.key_point_2d_annotation import (
+    KeyPoint2DAnnotationList,
+)
+
+# isort:skip
+from dgp.annotations.key_point_3d_annotation import (
+    KeyPoint3DAnnotationList,
+)
+
 from dgp.annotations.depth_annotation import DenseDepthAnnotation  # isort:skip
 
 # Ontology handlers for each annotation type
@@ -41,7 +63,7 @@ ONTOLOGY_REGISTRY = {
     "surface_normals_2d": None,
     "surface_normals_3d": None,
     "motion_vectors_2d": None,
-    "motion_vectors_3d": None
+    "motion_vectors_3d": None,
 }
 
 # Annotation objects for each annotation type
@@ -54,7 +76,7 @@ ANNOTATION_REGISTRY = {
     "key_point_3d": KeyPoint3DAnnotationList,
     "key_line_2d": KeyLine2DAnnotationList,
     "key_line_3d": KeyLine3DAnnotationList,
-    "depth": DenseDepthAnnotation
+    "depth": DenseDepthAnnotation,
 }
 
 # Annotation groups for each annotation type: 2d/3d
@@ -73,5 +95,5 @@ ANNOTATION_TYPE_TO_ANNOTATION_GROUP = {
     "key_line_2d": "2d",
     "key_point_3d": "3d",
     "key_line_3d": "3d",
-    "depth": "2d"
+    "depth": "2d",
 }

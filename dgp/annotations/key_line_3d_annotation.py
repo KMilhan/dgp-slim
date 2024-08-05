@@ -23,10 +23,14 @@ class KeyLine3DAnnotationList(Annotation):
 
     linelist: list[KeyLine3D]
         List of KeyLine3D objects. See `dgp/utils/structures/key_line_3d` for more details.
+
     """
+
     def __init__(self, ontology, linelist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, KeyLineOntology), "Trying to load annotation with wrong type of ontology!"
+        assert isinstance(
+            self._ontology, KeyLineOntology
+        ), "Trying to load annotation with wrong type of ontology!"
         for line in linelist:
             assert isinstance(
                 line, KeyLine3D
@@ -49,15 +53,19 @@ class KeyLine3DAnnotationList(Annotation):
         -------
         KeyLine3DAnnotationList
             Annotation object instantiated from file.
+
         """
         _annotation_pb2 = parse_pbobject(annotation_file, KeyLine3DAnnotations)
         linelist = [
             KeyLine3D(
-                line=np.float32([[vertex.x, vertex.y, vertex.z] for vertex in ann.vertices]),
+                line=np.float32(
+                    [[vertex.x, vertex.y, vertex.z] for vertex in ann.vertices]
+                ),
                 class_id=ontology.class_id_to_contiguous_id[ann.class_id],
                 color=ontology.colormap[ann.class_id],
                 attributes=getattr(ann, "attributes", {}),
-            ) for ann in _annotation_pb2.annotations
+            )
+            for ann in _annotation_pb2.annotations
         ]
         return cls(ontology, linelist)
 
@@ -68,6 +76,7 @@ class KeyLine3DAnnotationList(Annotation):
         -------
         KeyLine3DAnnotations
             Annotation as defined in `proto/annotations.proto`
+
         """
         return KeyLine3DAnnotations(
             annotations=[
@@ -79,16 +88,18 @@ class KeyLine3DAnnotationList(Annotation):
                             class_id=line.class_id,
                             instance_id=line.instance_id,
                             color=line.color,
-                            attributes=line.attributes
-                        ).to_proto() for x, y, z in zip(line.x, line.y, line.z)
+                            attributes=line.attributes,
+                        ).to_proto()
+                        for x, y, z in zip(line.x, line.y, line.z)
                     ],
-                    attributes=line.attributes
-                ) for line in self._linelist
+                    attributes=line.attributes,
+                )
+                for line in self._linelist
             ]
         )
 
     def save(self, save_dir):
-        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>
+        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>.
 
         Parameters
         ----------
@@ -99,6 +110,7 @@ class KeyLine3DAnnotationList(Annotation):
         -------
         output_annotation_file: str
             Full path to saved annotation.
+
         """
         return save_pbobject_as_json(self.to_proto(), save_path=save_dir)
 
@@ -106,7 +118,7 @@ class KeyLine3DAnnotationList(Annotation):
         return len(self._linelist)
 
     def __getitem__(self, index):
-        """Return a single 3D keyline"""
+        """Return a single 3D keyline."""
         return self._linelist[index]
 
     def render(self):
@@ -115,8 +127,10 @@ class KeyLine3DAnnotationList(Annotation):
 
     @property
     def xyz(self):
-        """Return lines as (N, 3) np.ndarray in format ([x, y, z])"""
-        return np.array([line.xyz.tolist() for line in self._linelist], dtype=np.float32)
+        """Return lines as (N, 3) np.ndarray in format ([x, y, z])."""
+        return np.array(
+            [line.xyz.tolist() for line in self._linelist], dtype=np.float32
+        )
 
     @property
     def class_ids(self):

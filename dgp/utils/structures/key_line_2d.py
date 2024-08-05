@@ -3,7 +3,7 @@ import hashlib
 
 import numpy as np
 
-import dgp.proto.annotations_pb2 as annotations_pb2
+from dgp.proto import annotations_pb2
 
 GENERIC_OBJECT_CLASS = 1
 
@@ -31,7 +31,15 @@ class KeyLine2D:
         defaults to empty dict.
 
     """
-    def __init__(self, line, class_id=GENERIC_OBJECT_CLASS, instance_id=None, color=(0, 0, 0), attributes=None):
+
+    def __init__(
+        self,
+        line,
+        class_id=GENERIC_OBJECT_CLASS,
+        instance_id=None,
+        color=(0, 0, 0),
+        attributes=None,
+    ):
         assert line.dtype in (np.float32, np.float64)
         assert line.shape[1] == 2
 
@@ -91,5 +99,9 @@ class KeyLine2D:
         -------
         KeyLine2D.pb2
             As defined in `proto/annotations.proto`
+
         """
-        return [annotations_pb2.KeyPoint2D(x=int(self.x[j]), y=int(self.y[j])) for j, k in enumerate(self.x)]
+        return [
+            annotations_pb2.KeyPoint2D(x=int(self.x[j]), y=int(self.y[j]))
+            for j, k in enumerate(self.x)
+        ]

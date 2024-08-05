@@ -1,5 +1,5 @@
 # Copyright 2019-2021 Toyota Research Institute.  All rights reserved.
-"""Useful utilities for accumulating sensory information over time"""
+"""Useful utilities for accumulating sensory information over time."""
 from collections import defaultdict
 from copy import deepcopy
 
@@ -7,7 +7,7 @@ import numpy as np
 
 
 def points_in_cuboid(query_points, cuboid):
-    """Tests if a point is contained by a cuboid. Assumes points are in the same frame as the cuboid, 
+    """Tests if a point is contained by a cuboid. Assumes points are in the same frame as the cuboid,
     i.e, cuboid.pose translates points in the cuboid local frame to the query_point frame.
 
     Parameters
@@ -22,6 +22,7 @@ def points_in_cuboid(query_points, cuboid):
     -------
     in_view: np.ndarray
         Numpy boolean array shape (N,) where a True entry denotes a point insided the cuboid
+
     """
     # To test if a point is inside a cuboid, we select a reference point on the cube,
     # and construct three vectors denoting the offests to the three parallel sides of the cuboid.
@@ -62,7 +63,16 @@ def points_in_cuboid(query_points, cuboid):
     proj_b = np.dot(v, b)
     proj_c = np.dot(v, c)
 
-    in_view = np.logical_and.reduce([proj_a >= 0, proj_b >= 0, proj_c >= 0, proj_a <= ma, proj_b <= mb, proj_c <= mc])
+    in_view = np.logical_and.reduce(
+        [
+            proj_a >= 0,
+            proj_b >= 0,
+            proj_c >= 0,
+            proj_a <= ma,
+            proj_b <= mb,
+            proj_c <= mc,
+        ]
+    )
 
     return in_view
 
@@ -88,50 +98,52 @@ def accumulate_points(point_datums, target_datum, transform_boxes=False):
     p_target: dict
         A new datum with accumulated points and an additional field 'accumulation_offset_t'
         that indicates the delta in microseconds between the target_datum and the given point.
-    """
 
-    assert 'point_cloud' in point_datums[0], "Accumulation is only defined for radar and lidar currently."
+    """
+    assert (
+        "point_cloud" in point_datums[0]
+    ), "Accumulation is only defined for radar and lidar currently."
 
     p_target = deepcopy(target_datum)
-    pose_target_w = p_target['pose'].inverse()
+    pose_target_w = p_target["pose"].inverse()
 
     new_fields = defaultdict(list)
 
     target_boxes = {}
-    if transform_boxes and 'bounding_box_3d' in target_datum:
-        target_boxes = {box.instance_id: box for box in target_datum['bounding_box_3d']}
+    if transform_boxes and "bounding_box_3d" in target_datum:
+        target_boxes = {box.instance_id: box for box in target_datum["bounding_box_3d"]}
 
     for _, p in enumerate(point_datums):
         # Move p into global world frame, then transform from world to p_target.
-        pose_p2p1 = pose_target_w * p['pose']
+        pose_p2p1 = pose_target_w * p["pose"]
 
-        new_points = pose_p2p1 * p['point_cloud']
-        new_fields['point_cloud'].append(new_points)
+        new_points = pose_p2p1 * p["point_cloud"]
+        new_fields["point_cloud"].append(new_points)
 
-        if 'velocity' in p_target:
+        if "velocity" in p_target:
             # Transform the velocity by moving head and tail.
-            new_vel = pose_p2p1 * (p['point_cloud'] + p['velocity']) - new_points
-            new_fields['velocity'].append(new_vel)
+            new_vel = pose_p2p1 * (p["point_cloud"] + p["velocity"]) - new_points
+            new_fields["velocity"].append(new_vel)
 
-        if 'covariance' in p_target:
+        if "covariance" in p_target:
             # The covariance matrix only needs to be rotated.
             R = pose_p2p1.rotation_matrix
-            new_cov = R @ p['covariance'] @ R.T
-            new_fields['covariance'].append(new_cov)
+            new_cov = R @ p["covariance"] @ R.T
+            new_fields["covariance"].append(new_cov)
 
-        if 'extra_channels' in p_target:
+        if "extra_channels" in p_target:
             # The extra channels should not have any geometry, just append them.
-            new_fields['extra_channels'].append(p['extra_channels'])
+            new_fields["extra_channels"].append(p["extra_channels"])
 
-        dt = p_target['timestamp'] - p['timestamp']
-        new_fields['accumulation_offset_t'].append(dt * np.ones(len(new_points)))
+        dt = p_target["timestamp"] - p["timestamp"]
+        new_fields["accumulation_offset_t"].append(dt * np.ones(len(new_points)))
 
-        if transform_boxes and 'bounding_box_3d' in p:
+        if transform_boxes and "bounding_box_3d" in p:
             # Skip if this is a radar
-            if 'velocity' in p:
+            if "velocity" in p:
                 continue
 
-            for _box in p['bounding_box_3d']:
+            for _box in p["bounding_box_3d"]:
                 if _box.instance_id not in target_boxes:
                     continue
 
@@ -140,14 +152,16 @@ def accumulate_points(point_datums, target_datum, transform_boxes=False):
                 box._pose = pose_p2p1 * box.pose
 
                 # TODO: maybe shrink cuboid slightly to prevent accidentally moving ground points
-                in_box = points_in_cuboid(new_fields['point_cloud'][-1], box)
+                in_box = points_in_cuboid(new_fields["point_cloud"][-1], box)
 
                 if np.any(in_box):
-                    points_to_move = new_fields['point_cloud'][-1][in_box]
+                    points_to_move = new_fields["point_cloud"][-1][in_box]
                     # move the points local A -> cuboid -> target local
-                    pose_p2box1 = target_boxes[box.instance_id].pose * box.pose.inverse()
+                    pose_p2box1 = (
+                        target_boxes[box.instance_id].pose * box.pose.inverse()
+                    )
                     moved_points = pose_p2box1 * points_to_move
-                    new_fields['point_cloud'][-1][in_box] = moved_points
+                    new_fields["point_cloud"][-1][in_box] = moved_points
 
                 # TODO: check that no point belongs to more than one cuboid,
                 # if so, perhaps break these ties by distance to org cuboid center?

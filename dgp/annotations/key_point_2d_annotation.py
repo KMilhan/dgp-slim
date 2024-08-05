@@ -25,10 +25,14 @@ class KeyPoint2DAnnotationList(Annotation):
 
     pointlist: list[KeyPoint2D]
         List of KeyPoint2D objects. See `dgp/utils/structures/key_point_2d` for more details.
+
     """
+
     def __init__(self, ontology, pointlist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, KeyPointOntology), "Trying to load annotation with wrong type of ontology!"
+        assert isinstance(
+            self._ontology, KeyPointOntology
+        ), "Trying to load annotation with wrong type of ontology!"
         for point in pointlist:
             assert isinstance(
                 point, KeyPoint2D
@@ -51,6 +55,7 @@ class KeyPoint2DAnnotationList(Annotation):
         -------
         KeyPoint2DAnnotationList
             Annotation object instantiated from file.
+
         """
         _annotation_pb2 = parse_pbobject(annotation_file, KeyPoint2DAnnotations)
         pointlist = [
@@ -59,7 +64,8 @@ class KeyPoint2DAnnotationList(Annotation):
                 class_id=ontology.class_id_to_contiguous_id[ann.class_id],
                 color=ontology.colormap[ann.class_id],
                 attributes=getattr(ann, "attributes", {}),
-            ) for ann in _annotation_pb2.annotations
+            )
+            for ann in _annotation_pb2.annotations
         ]
         return cls(ontology, pointlist)
 
@@ -70,19 +76,21 @@ class KeyPoint2DAnnotationList(Annotation):
         -------
         KeyPoint2DAnnotations
             Annotation as defined in `proto/annotations.proto`
+
         """
         return KeyPoint2DAnnotations(
             annotations=[
                 KeyPoint2DAnnotation(
                     class_id=self._ontology.contiguous_id_to_class_id[point.class_id],
                     point=point.to_proto(),
-                    attributes=point.attributes
-                ) for point in self.pointlist
+                    attributes=point.attributes,
+                )
+                for point in self.pointlist
             ]
         )
 
     def save(self, save_dir):
-        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>
+        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>.
 
         Parameters
         ----------
@@ -93,6 +101,7 @@ class KeyPoint2DAnnotationList(Annotation):
         -------
         output_annotation_file: str
             Full path to saved annotation
+
         """
         return save_pbobject_as_json(self.to_proto(), save_path=save_dir)
 
@@ -100,7 +109,7 @@ class KeyPoint2DAnnotationList(Annotation):
         return len(self.pointlist)
 
     def __getitem__(self, index):
-        """Return a single 2D keypoint"""
+        """Return a single 2D keypoint."""
         return self.pointlist[index]
 
     def render(self):
@@ -109,7 +118,7 @@ class KeyPoint2DAnnotationList(Annotation):
 
     @property
     def xy(self):
-        """Return points as (N, 2) np.ndarray in format ([x, y])"""
+        """Return points as (N, 2) np.ndarray in format ([x, y])."""
         return np.array([point.xy for point in self.pointlist], dtype=np.float32)
 
     @property

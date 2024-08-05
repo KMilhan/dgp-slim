@@ -3,7 +3,7 @@ import hashlib
 
 import numpy as np
 
-import dgp.proto.annotations_pb2 as annotations_pb2
+from dgp.proto import annotations_pb2
 
 GENERIC_OBJECT_CLASS = 1
 
@@ -31,10 +31,20 @@ class KeyPoint2D:
         defaults to empty dict.
 
     """
-    def __init__(self, point, class_id=GENERIC_OBJECT_CLASS, instance_id=None, color=(0, 0, 0), attributes=None):
+
+    def __init__(
+        self,
+        point,
+        class_id=GENERIC_OBJECT_CLASS,
+        instance_id=None,
+        color=(0, 0, 0),
+        attributes=None,
+    ):
         assert point.dtype in (np.float32, np.float64)
         assert point.shape[0] == 2
-        assert class_id != 0, "0 is reserved for background, your class must have a different ID"
+        assert (
+            class_id != 0
+        ), "0 is reserved for background, your class must have a different ID"
 
         self._point = point
 
@@ -90,5 +100,6 @@ class KeyPoint2D:
         -------
         KeyPoint2D.pb2
             As defined in `proto/annotations.proto`
+
         """
         return annotations_pb2.KeyPoint2D(x=int(self.x), y=int(self.y))

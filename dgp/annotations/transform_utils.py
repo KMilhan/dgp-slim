@@ -15,9 +15,10 @@ from dgp.proto.ontology_pb2 import Ontology as OntologyPB2
 from dgp.proto.ontology_pb2 import OntologyItem
 
 
-def remap_bounding_box_annotations(bounding_box_annotations, lookup_table, original_ontology, remapped_ontology):
-    """
-    Parameters
+def remap_bounding_box_annotations(
+    bounding_box_annotations, lookup_table, original_ontology, remapped_ontology
+):
+    """Parameters
     ----------
     bounding_box_annotations: BoundingBox2DAnnotationList or BoundingBox3DAnnotationList
         Annotations to remap
@@ -41,15 +42,20 @@ def remap_bounding_box_annotations(bounding_box_annotations, lookup_table, origi
     -------
     remapped_bounding_box_annotations: BoundingBox2DAnnotationList or BoundingBox3DAnnotationList
         Remapped annotations with the same type of bounding_box_annotations
+
     """
-    assert (isinstance(original_ontology, BoundingBoxOntology) and isinstance(remapped_ontology, BoundingBoxOntology))
+    assert isinstance(original_ontology, BoundingBoxOntology) and isinstance(
+        remapped_ontology, BoundingBoxOntology
+    )
     # Iterate over boxes constructing box with remapped class for each
     remapped_boxlist = []
     for box in bounding_box_annotations:
         original_class_name = original_ontology.contiguous_id_to_name[box.class_id]
         if original_class_name in lookup_table:
             # Remap class_id in box
-            remapped_class_id = remapped_ontology.name_to_contiguous_id[lookup_table[original_class_name]]
+            remapped_class_id = remapped_ontology.name_to_contiguous_id[
+                lookup_table[original_class_name]
+            ]
             box.class_id = remapped_class_id
             remapped_boxlist.append(box)
 
@@ -61,8 +67,7 @@ def remap_bounding_box_annotations(bounding_box_annotations, lookup_table, origi
 def remap_semantic_segmentation_2d_annotation(
     semantic_segmentation_annotation, lookup_table, original_ontology, remapped_ontology
 ):
-    """
-    Parameters
+    """Parameters
     ----------
     semantic_segmentation_annotation: SemanticSegmentation2DAnnotation
         Annotation to remap
@@ -86,26 +91,33 @@ def remap_semantic_segmentation_2d_annotation(
     -------
     remapped_semantic_segmentation_2d_annotation: SemanticSegmentation2DAnnotation
         Remapped annotation
+
     """
-    assert (isinstance(original_ontology, SemanticSegmentationOntology) and \
-        isinstance(remapped_ontology, SemanticSegmentationOntology))
+    assert isinstance(original_ontology, SemanticSegmentationOntology) and isinstance(
+        remapped_ontology, SemanticSegmentationOntology
+    )
 
     original_segmentation_image = semantic_segmentation_annotation.label
-    remapped_segmentation_image = np.ones_like(original_segmentation_image) * Ontology.VOID_ID
+    remapped_segmentation_image = (
+        np.ones_like(original_segmentation_image) * Ontology.VOID_ID
+    )
     for class_name in lookup_table:
         # pylint: disable=E1137
-        remapped_segmentation_image[original_segmentation_image == original_ontology.name_to_contiguous_id[class_name]] = \
-            remapped_ontology.name_to_contiguous_id[lookup_table[class_name]]
+        remapped_segmentation_image[
+            original_segmentation_image
+            == original_ontology.name_to_contiguous_id[class_name]
+        ] = remapped_ontology.name_to_contiguous_id[lookup_table[class_name]]
         # pylint: enable=E1137
     # Instantiate SemanticSegmentation2DAnnotation with remapped segmentation image and remapped SemanticSegmentationOntology
-    return SemanticSegmentation2DAnnotation(remapped_ontology, remapped_segmentation_image)
+    return SemanticSegmentation2DAnnotation(
+        remapped_ontology, remapped_segmentation_image
+    )
 
 
 def remap_instance_segmentation_2d_annotation(
     instance_segmentation_annotation, lookup_table, original_ontology, remapped_ontology
 ):
-    """
-    Parameters
+    """Parameters
     ----------
     instance_segmentation_annotation: PanopticSegmentation2DAnnotation
         Annotation to remap
@@ -129,31 +141,39 @@ def remap_instance_segmentation_2d_annotation(
     -------
     PanopticSegmentation2DAnnotation:
         Remapped annotation
+
     """
-    assert (
-        isinstance(original_ontology, InstanceSegmentationOntology)
-        and isinstance(remapped_ontology, InstanceSegmentationOntology)
+    assert isinstance(original_ontology, InstanceSegmentationOntology) and isinstance(
+        remapped_ontology, InstanceSegmentationOntology
     )
     # Iterate over boxes constructing box with remapped class for each
     remapped_masklist = []
     for instance_mask in instance_segmentation_annotation:
-        original_class_name = original_ontology.contiguous_id_to_name[instance_mask.class_id]
+        original_class_name = original_ontology.contiguous_id_to_name[
+            instance_mask.class_id
+        ]
         if original_class_name in lookup_table:
             # Remap class_id in box
-            remapped_class_id = remapped_ontology.name_to_contiguous_id[lookup_table[original_class_name]]
+            remapped_class_id = remapped_ontology.name_to_contiguous_id[
+                lookup_table[original_class_name]
+            ]
             instance_mask.class_id = remapped_class_id
             remapped_masklist.append(instance_mask)
 
-    assert isinstance(instance_segmentation_annotation, PanopticSegmentation2DAnnotation)
+    assert isinstance(
+        instance_segmentation_annotation, PanopticSegmentation2DAnnotation
+    )
     return PanopticSegmentation2DAnnotation.from_masklist(
-        remapped_masklist, remapped_ontology, instance_segmentation_annotation.panoptic_image.shape,
-        instance_segmentation_annotation.panoptic_image_dtype
+        remapped_masklist,
+        remapped_ontology,
+        instance_segmentation_annotation.panoptic_image.shape,
+        instance_segmentation_annotation.panoptic_image_dtype,
     )
 
 
 def construct_remapped_ontology(ontology, lookup, annotation_key):
     """Given an Ontology object and a lookup from old class names to new class names, construct
-    an ontology proto for the new ontology that results
+    an ontology proto for the new ontology that results.
 
     Parameters
     ----------
@@ -191,63 +211,81 @@ def construct_remapped_ontology(ontology, lookup, annotation_key):
     Notes
     -----
     This could be a class function of `Ontology`
+
     """
     # Will work with top-level Ontology class here for util to be generic
-    assert isinstance(ontology, Ontology), f'Expected Ontology, got {type(ontology)}'
+    assert isinstance(ontology, Ontology), f"Expected Ontology, got {type(ontology)}"
 
     # Construct lookup from new class name to original class names that map to it
     remapped_class_name_to_original_class_names = OrderedDict()
     for class_name, remapped_class_name in lookup.items():  # NOTE: this assumes Ordered
         if remapped_class_name not in remapped_class_name_to_original_class_names:
             remapped_class_name_to_original_class_names[remapped_class_name] = []
-        remapped_class_name_to_original_class_names[remapped_class_name].append(class_name)
+        remapped_class_name_to_original_class_names[remapped_class_name].append(
+            class_name
+        )
 
     # Sort alphabetically
     remapped_class_name_to_original_class_names = {
-        k: sorted(v)
-        for k, v in remapped_class_name_to_original_class_names.items()
+        k: sorted(v) for k, v in remapped_class_name_to_original_class_names.items()
     }
 
     remapped_ontology_pb2 = OntologyPB2()
 
-    for remapped_class_id, (remapped_class_name,
-                            original_class_names) in enumerate(remapped_class_name_to_original_class_names.items()):
+    for remapped_class_id, (remapped_class_name, original_class_names) in enumerate(
+        remapped_class_name_to_original_class_names.items()
+    ):
 
         # Get class_id and color for class name that we're remapping
-        original_class_ids = [ontology.name_to_id[class_name] for class_name in original_class_names]
+        original_class_ids = [
+            ontology.name_to_id[class_name] for class_name in original_class_names
+        ]
 
         isthing = [ontology.isthing[class_id] for class_id in original_class_ids]
         # NOTE: Except semantic_segmentation_2d, classes being grouped together can only be all fromthings or stuffs classes
-        if annotation_key == 'semantic_segmentation_2d':
+        if annotation_key == "semantic_segmentation_2d":
             # semantic_segmentation_2d should only be stuff
             isthing = False
         else:
             # Enforce that classes mapping to the same class are either all things or all stuff
-            assert len(set(isthing)) == 1, "Classes mapping to the same class are either all things or all stuff"
+            assert (
+                len(set(isthing)) == 1
+            ), "Classes mapping to the same class are either all things or all stuff"
             isthing = isthing[0]
 
         # Keep first color from original class names (sorted alphabetically)
         remapped_class_color = ontology.colormap[original_class_ids[0]]
 
         # Construct remapped ontology item
-        remapped_ontology_pb2.items.extend([
-            OntologyItem(
-                name=remapped_class_name,
-                id=remapped_class_id,
-                isthing=isthing,
-                color=OntologyItem.Color(
-                    r=remapped_class_color[0], g=remapped_class_color[1], b=remapped_class_color[2]
+        remapped_ontology_pb2.items.extend(
+            [
+                OntologyItem(
+                    name=remapped_class_name,
+                    id=remapped_class_id,
+                    isthing=isthing,
+                    color=OntologyItem.Color(
+                        r=remapped_class_color[0],
+                        g=remapped_class_color[1],
+                        b=remapped_class_color[2],
+                    ),
                 )
-            )
-        ])
+            ]
+        )
 
     # semantic segmentation 2d will always have a VOID class
-    if annotation_key == 'semantic_segmentation_2d' and \
-        not Ontology.VOID_CLASS in remapped_class_name_to_original_class_names:
-        remapped_ontology_pb2.items.extend([
-            OntologyItem(
-                name=Ontology.VOID_CLASS, id=Ontology.VOID_ID, isthing=False, color=OntologyItem.Color(r=0, g=0, b=0)
-            )
-        ])
+    if (
+        annotation_key == "semantic_segmentation_2d"
+        and Ontology.VOID_CLASS not in remapped_class_name_to_original_class_names
+    ):
+        remapped_ontology_pb2.items.extend(
+            [
+                OntologyItem(
+                    name=Ontology.VOID_CLASS,
+                    id=Ontology.VOID_ID,
+                    isthing=False,
+                    color=OntologyItem.Color(r=0, g=0, b=0),
+                )
+            ]
+        )
 
     return remapped_ontology_pb2

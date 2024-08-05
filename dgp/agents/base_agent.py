@@ -15,6 +15,7 @@ class AgentSnapshotList(ABC):
         Ontology object for the annotation key.
 
     """
+
     def __init__(self, ontology=None):
         if ontology is not None:
             assert isinstance(ontology, Ontology), "Invalid ontology!"
@@ -45,8 +46,9 @@ class AgentSnapshotList(ABC):
                 "agent_3d": AgentFeatureOntology[<ontology_sha>]
             }
             Default: None.
+
         """
 
     @abstractmethod
     def render(self):
-        """Return a rendering of the agent snapshot list. Expected format is a PIL.Image or np.array"""
+        """Return a rendering of the agent snapshot list. Expected format is a PIL.Image or np.array."""

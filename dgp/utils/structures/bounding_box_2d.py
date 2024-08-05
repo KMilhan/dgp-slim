@@ -3,7 +3,7 @@ import hashlib
 
 import numpy as np
 
-import dgp.proto.annotations_pb2 as annotations_pb2
+from dgp.proto import annotations_pb2
 
 GENERIC_OBJECT_CLASS = 1
 
@@ -38,13 +38,23 @@ class BoundingBox2D:
     ------
     Exception
         Raised if the value of mode is unsupported.
+
     """
+
     def __init__(
-        self, box, class_id=GENERIC_OBJECT_CLASS, instance_id=None, color=(0, 0, 0), attributes=None, mode="ltwh"
+        self,
+        box,
+        class_id=GENERIC_OBJECT_CLASS,
+        instance_id=None,
+        color=(0, 0, 0),
+        attributes=None,
+        mode="ltwh",
     ):
         assert box.dtype in (np.float32, np.float64)
         assert box.shape[0] == 4
-        assert class_id != 0, "0 is reserved for background, your class must have a different ID"
+        assert (
+            class_id != 0
+        ), "0 is reserved for background, your class must have a different ID"
 
         self._box = box
 
@@ -57,7 +67,9 @@ class BoundingBox2D:
             self.w = box[2] - box[0]
             self.h = box[3] - box[1]
         else:
-            raise Exception(f"Bounding box must be initialized as 'ltrb' or 'ltwh', cannot recognize {mode}")
+            raise Exception(
+                f"Bounding box must be initialized as 'ltrb' or 'ltwh', cannot recognize {mode}"
+            )
 
         self._class_id = class_id
         self._instance_id = instance_id
@@ -76,12 +88,15 @@ class BoundingBox2D:
         ------
         NotImplementedError
             Unconditionally
+
         """
         raise NotImplementedError
 
     @property
     def ltrb(self):
-        return np.array([self.l, self.t, self.l + self.w, self.t + self.h], dtype=np.float32)
+        return np.array(
+            [self.l, self.t, self.l + self.w, self.t + self.h], dtype=np.float32
+        )
 
     @property
     def ltwh(self):
@@ -137,6 +152,7 @@ class BoundingBox2D:
         -------
         image: PIL.Image or np.ndarray
             Image with boxes rendered
+
         """
         raise NotImplementedError
 
@@ -150,5 +166,8 @@ class BoundingBox2D:
         -------
         BoundingBox2D.pb2
             As defined in `proto/annotations.proto`
+
         """
-        return annotations_pb2.BoundingBox2D(x=int(self.l), y=int(self.t), w=int(self.w), h=int(self.h))
+        return annotations_pb2.BoundingBox2D(
+            x=int(self.l), y=int(self.t), w=int(self.w), h=int(self.h)
+        )

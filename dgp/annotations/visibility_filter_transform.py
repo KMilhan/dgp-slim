@@ -31,8 +31,12 @@ class InstanceMaskVisibilityFilter(BaseTransform):
     use_amodal_bbox2d_annotations: bool, default: False
         If True, then use "amodal" bounding box (i.e. the box includes occluded/truncated parts) for 2D bounding box annotation.
         If False, then use "modal" bounding box (i.e. tight bounding box of instance mask.)
+
     """
-    def __init__(self, camera_datum_names, min_mask_size=300, use_amodal_bbox2d_annotations=False):
+
+    def __init__(
+        self, camera_datum_names, min_mask_size=300, use_amodal_bbox2d_annotations=False
+    ):
         self._camera_datum_names = camera_datum_names
         self._min_mask_size = min_mask_size
         self._use_amodal_bbox2d_annotations = use_amodal_bbox2d_annotations
@@ -54,62 +58,86 @@ class InstanceMaskVisibilityFilter(BaseTransform):
         ------
         ValueError
             Raised if a 2D or 3D bounding box instance lacks any required instance IDs.
+
         """
-        cam_datums = [datum for datum in sample if datum['datum_name'] in self._camera_datum_names]
+        cam_datums = [
+            datum for datum in sample if datum["datum_name"] in self._camera_datum_names
+        ]
 
         visible_instance_ids = set()  # Instances that looks big enough in any camera.
         in_frustum_instance_ids_per_camera = {}  # In-frustum instances for each camera.
-        id_to_bbox3d_per_camera, id_to_mask2d_per_camera, id_to_bbox2d_per_camera = {}, {}, {}
+        id_to_bbox3d_per_camera, id_to_mask2d_per_camera, id_to_bbox2d_per_camera = (
+            {},
+            {},
+            {},
+        )
         for datum in cam_datums:
-            datum_name = datum['datum_name']
+            datum_name = datum["datum_name"]
 
             # What instances are (partially) within camera frustum?
             in_frustum_instance_ids_per_camera[datum_name] = [
-                mask.instance_id for mask in datum['instance_segmentation_2d']
+                mask.instance_id for mask in datum["instance_segmentation_2d"]
             ]
 
             # Map instance ID to annotations (e.g. bounding boxes, masks).
-            id_to_bbox3d = {bbox3d.instance_id: bbox3d for bbox3d in datum['bounding_box_3d']}
-            id_to_mask2d = {mask2d.instance_id: mask2d for mask2d in datum['instance_segmentation_2d']}
+            id_to_bbox3d = {
+                bbox3d.instance_id: bbox3d for bbox3d in datum["bounding_box_3d"]
+            }
+            id_to_mask2d = {
+                mask2d.instance_id: mask2d
+                for mask2d in datum["instance_segmentation_2d"]
+            }
             id_to_bbox3d_per_camera[datum_name] = id_to_bbox3d
             id_to_mask2d_per_camera[datum_name] = id_to_mask2d
 
             if self._use_amodal_bbox2d_annotations:
-                id_to_bbox2d = {bbox2d.instance_id: bbox2d for bbox2d in datum['bounding_box_2d']}
+                id_to_bbox2d = {
+                    bbox2d.instance_id: bbox2d for bbox2d in datum["bounding_box_2d"]
+                }
                 id_to_bbox2d_per_camera[datum_name] = id_to_bbox2d
 
             # TODO: Remove this filtering, once the ontology is unified between 2d and 3d in the upcoming PD data.
             if self._use_amodal_bbox2d_annotations:
                 in_frustum_instance_ids_per_camera[datum_name] = [
-                    _id for _id in in_frustum_instance_ids_per_camera[datum_name]
+                    _id
+                    for _id in in_frustum_instance_ids_per_camera[datum_name]
                     if _id in id_to_bbox2d and _id in id_to_bbox3d
                 ]
             else:
                 in_frustum_instance_ids_per_camera[datum_name] = [
-                    _id for _id in in_frustum_instance_ids_per_camera[datum_name] if _id in id_to_bbox3d
+                    _id
+                    for _id in in_frustum_instance_ids_per_camera[datum_name]
+                    if _id in id_to_bbox3d
                 ]
-            ids_missing_in_bbox3d = list(set(in_frustum_instance_ids_per_camera[datum_name]) - set(id_to_bbox3d))
+            ids_missing_in_bbox3d = list(
+                set(in_frustum_instance_ids_per_camera[datum_name]) - set(id_to_bbox3d)
+            )
             if ids_missing_in_bbox3d:
                 raise ValueError(
-                    "Missing instances from `bounding_box_3d`: {:s}".format(', '.join(sorted(ids_missing_in_bbox3d)))
+                    "Missing instances from `bounding_box_3d`: {:s}".format(
+                        ", ".join(sorted(ids_missing_in_bbox3d))
+                    )
                 )
             if self._use_amodal_bbox2d_annotations:
-                ids_missing_in_bbox2d = list(set(in_frustum_instance_ids_per_camera[datum_name]) - set(id_to_bbox2d))
+                ids_missing_in_bbox2d = list(
+                    set(in_frustum_instance_ids_per_camera[datum_name])
+                    - set(id_to_bbox2d)
+                )
                 if ids_missing_in_bbox2d:
                     raise ValueError(
                         "Missing instances from `bounding_box_2d`: {:s}".format(
-                            ', '.join(sorted(ids_missing_in_bbox2d))
+                            ", ".join(sorted(ids_missing_in_bbox2d))
                         )
                     )
 
-            for instance_mask in datum['instance_segmentation_2d']:
+            for instance_mask in datum["instance_segmentation_2d"]:
                 if instance_mask.area >= self._min_mask_size:
                     visible_instance_ids.add(instance_mask.instance_id)
 
         # For each camera, create new annotation and replace the original one.
         new_sample = sample
         for datum in new_sample:
-            datum_name = datum['datum_name']
+            datum_name = datum["datum_name"]
             if datum_name not in self._camera_datum_names:
                 continue
 
@@ -117,7 +145,9 @@ class InstanceMaskVisibilityFilter(BaseTransform):
             new_boxlist_3d, new_boxlist_2d, new_masklist_2d = [], [], []
             for instance_id in in_frustum_instance_ids_per_camera[datum_name]:
                 if instance_id in visible_instance_ids:
-                    new_boxlist_3d.append(id_to_bbox3d_per_camera[datum_name][instance_id])
+                    new_boxlist_3d.append(
+                        id_to_bbox3d_per_camera[datum_name][instance_id]
+                    )
 
                     mask2d = id_to_mask2d_per_camera[datum_name][instance_id]
                     if self._use_amodal_bbox2d_annotations:
@@ -140,12 +170,18 @@ class InstanceMaskVisibilityFilter(BaseTransform):
                     new_masklist_2d.append(mask2d)
 
             # Replace annotations in place.
-            datum['bounding_box_3d'] = BoundingBox3DAnnotationList(datum['bounding_box_3d'].ontology, new_boxlist_3d)
-            datum['bounding_box_2d'] = BoundingBox2DAnnotationList(datum['bounding_box_2d'].ontology, new_boxlist_2d)
-            datum['instance_segmentation_2d'] = PanopticSegmentation2DAnnotation.from_masklist(
-                new_masklist_2d,
-                datum['instance_segmentation_2d'].ontology,
-                mask_shape=(datum['rgb'].height, datum['rgb'].width)
+            datum["bounding_box_3d"] = BoundingBox3DAnnotationList(
+                datum["bounding_box_3d"].ontology, new_boxlist_3d
+            )
+            datum["bounding_box_2d"] = BoundingBox2DAnnotationList(
+                datum["bounding_box_2d"].ontology, new_boxlist_2d
+            )
+            datum["instance_segmentation_2d"] = (
+                PanopticSegmentation2DAnnotation.from_masklist(
+                    new_masklist_2d,
+                    datum["instance_segmentation_2d"].ontology,
+                    mask_shape=(datum["rgb"].height, datum["rgb"].width),
+                )
             )
 
         return new_sample
@@ -162,6 +198,7 @@ class InstanceMaskVisibilityFilter(BaseTransform):
         -------
         new_datum: OrderedDict
             Single-modal sample with all detection annotations are filtered.
+
         """
         return self.transform_sample([datum])[0]
 
@@ -180,7 +217,9 @@ class BoundingBox3DCoalescer(BaseTransform):
 
     drop_src_datums: bool, default: True
         If True, then remove the source datums in the transformed sample.
+
     """
+
     def __init__(self, src_datum_names, dst_datum_name, drop_src_datums=True):
         self._src_datum_names = src_datum_names
         self._dst_datum_name = dst_datum_name
@@ -203,17 +242,20 @@ class BoundingBox3DCoalescer(BaseTransform):
         ------
         ValueError
             Raised if there are multiple instances of the same kind of datum in a sample.
+
         """
         # Mapping index to datum. The order of datums is preserved in output.
         datums, src_datum_inds, dst_datum_ind = OrderedDict(), [], []
         for idx, datum in enumerate(sample):
-            if datum['datum_name'] in self._src_datum_names:
+            if datum["datum_name"] in self._src_datum_names:
                 src_datum_inds.append(idx)
-            elif datum['datum_name'] == self._dst_datum_name:
+            elif datum["datum_name"] == self._dst_datum_name:
                 dst_datum_ind.append(idx)
             datums[idx] = datum
         if len(dst_datum_ind) != 1:
-            raise ValueError("There must be one {:s} datum.".format(self._dst_datum_name))
+            raise ValueError(
+                "There must be one {:s} datum.".format(self._dst_datum_name)
+            )
         dst_datum_ind = dst_datum_ind[0]
 
         # Merge 3D bounding boxes, bringing them into the destination frame.
@@ -221,15 +263,19 @@ class BoundingBox3DCoalescer(BaseTransform):
         dst_datum = datums[dst_datum_ind]
         for idx in src_datum_inds:
             src_datum = datums[idx]
-            p_src_dst = dst_datum['pose'].inverse() * src_datum['pose']
-            for bbox_3d in src_datum['bounding_box_3d']:
+            p_src_dst = dst_datum["pose"].inverse() * src_datum["pose"]
+            for bbox_3d in src_datum["bounding_box_3d"]:
                 # Keep only the unique instance IDs
                 if bbox_3d.instance_id not in instance_ids_merged:
                     instance_ids_merged.append(bbox_3d.instance_id)
                     bbox_3d_V_merged.append(p_src_dst * bbox_3d)
-        ontology = dst_datum['bounding_box_3d'].ontology  # Assumption: ontology is shared.
-        coalesced_bbox3d_annotation = BoundingBox3DAnnotationList(ontology, bbox_3d_V_merged)
-        dst_datum['bounding_box_3d'] = coalesced_bbox3d_annotation
+        ontology = dst_datum[
+            "bounding_box_3d"
+        ].ontology  # Assumption: ontology is shared.
+        coalesced_bbox3d_annotation = BoundingBox3DAnnotationList(
+            ontology, bbox_3d_V_merged
+        )
+        dst_datum["bounding_box_3d"] = coalesced_bbox3d_annotation
 
         transformed_sample = []
         for idx, datum in enumerate(sample):

@@ -7,7 +7,6 @@ from dgp.proto.annotations_pb2 import (
     BoundingBox3DAnnotation,
     BoundingBox3DAnnotations,
 )
-from dgp.utils.camera import Camera
 from dgp.utils.pose import Pose
 from dgp.utils.protobuf import (
     generate_uid_from_pbobject,
@@ -28,10 +27,14 @@ class BoundingBox3DAnnotationList(Annotation):
     boxlist: list[BoundingBox3D]
         List of BoundingBox3D objects. See `utils/structures/bounding_box_3d`
         for more details.
+
     """
+
     def __init__(self, ontology, boxlist):
         super().__init__(ontology)
-        assert isinstance(self._ontology, BoundingBoxOntology), "Trying to load annotation with wrong type of ontology!"
+        assert isinstance(
+            self._ontology, BoundingBoxOntology
+        ), "Trying to load annotation with wrong type of ontology!"
 
         for box in boxlist:
             assert isinstance(
@@ -55,6 +58,7 @@ class BoundingBox3DAnnotationList(Annotation):
         -------
         BoundingBox3DAnnotationList
             Annotation object instantiated from file.
+
         """
         _annotation_pb2 = parse_pbobject(annotation_file, BoundingBox3DAnnotations)
         boxlist = [
@@ -67,8 +71,9 @@ class BoundingBox3DAnnotationList(Annotation):
                 attributes=getattr(ann, "attributes", {}),
                 num_points=ann.num_points,
                 occlusion=ann.box.occlusion,
-                truncation=ann.box.truncation
-            ) for ann in _annotation_pb2.annotations
+                truncation=ann.box.truncation,
+            )
+            for ann in _annotation_pb2.annotations
         ]
         return cls(ontology, boxlist)
 
@@ -79,6 +84,7 @@ class BoundingBox3DAnnotationList(Annotation):
         -------
         BoundingBox3DAnnotations
             Annotation as defined `proto/annotations.proto`
+
         """
         return BoundingBox3DAnnotations(
             annotations=[
@@ -87,13 +93,14 @@ class BoundingBox3DAnnotationList(Annotation):
                     box=box.to_proto(),
                     instance_id=box.instance_id,
                     attributes=box.attributes,
-                    num_points=box.num_points
-                ) for box in self.boxlist
+                    num_points=box.num_points,
+                )
+                for box in self.boxlist
             ]
         )
 
     def save(self, save_dir):
-        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>
+        """Serialize Annotation object and saved to specified directory. Annotations are saved in format <save_dir>/<sha>.<ext>.
 
         Parameters
         ----------
@@ -104,6 +111,7 @@ class BoundingBox3DAnnotationList(Annotation):
         -------
         output_annotation_file: str
             Full path to saved annotation
+
         """
         return save_pbobject_as_json(self.to_proto(), save_path=save_dir)
 
@@ -111,11 +119,11 @@ class BoundingBox3DAnnotationList(Annotation):
         return len(self.boxlist)
 
     def __getitem__(self, index):
-        """Return a single 3D bounding box"""
+        """Return a single 3D bounding box."""
         return self.boxlist[index]
 
     def render(self, image, camera, line_thickness=2, font_scale=0.5):
-        """Render the 3D boxes in this annotation on the image in place
+        """Render the 3D boxes in this annotation on the image in place.
 
         Parameters
         ----------
@@ -138,20 +146,22 @@ class BoundingBox3DAnnotationList(Annotation):
             Raised if image is not a 3-channel uint8 numpy array.
         TypeError
             Raised if camera is not an instance of Camera.
+
         """
         if (
-            not isinstance(image, np.ndarray) or image.dtype != np.uint8 or len(image.shape) != 3 or image.shape[2] != 3
+            not isinstance(image, np.ndarray)
+            or image.dtype != np.uint8
+            or len(image.shape) != 3
+            or image.shape[2] != 3
         ):
-            raise ValueError('`image` needs to be a 3-channel uint8 numpy array')
-        if not isinstance(camera, Camera):
-            raise TypeError('`camera` should be of type Camera')
+            raise ValueError("`image` needs to be a 3-channel uint8 numpy array")
         for box in self.boxlist:
             box.render(
                 image,
                 camera,
                 line_thickness=line_thickness,
                 class_name=self._ontology.contiguous_id_to_name[box.class_id],
-                font_scale=font_scale
+                font_scale=font_scale,
             )
 
     @property
@@ -196,5 +206,6 @@ class BoundingBox3DAnnotationList(Annotation):
         ------
         NotImplementedError
             Unconditionally.
+
         """
         raise NotImplementedError
