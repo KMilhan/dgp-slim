@@ -6,21 +6,6 @@ authors = ["Woven By Toyota <enterprise-ai-solutions@woven.toyota>"]
 readme = "./README.md"
 repository = "https://github.com/dgp-slim"
 
-[[tool.poetry.source]]
-name = "artifactory"
-url = "https://artifactory.stargate.toyota/artifactory/api/pypi/eai-pypi-local-internal/simple"
-priority = "primary"
-
-
-[[tool.poetry.source]]
-name = "artifactory-remote"
-url = "https://artifactory.stargate.toyota/artifactory/api/pypi/python-remote/simple"
-priority = "primary"
-
-[[tool.poetry.source]]
-name = "artifactory-publish"
-url = "https://artifactory.stargate.toyota/artifactory/api/pypi/eai-pypi-local-internal"
-priority = "explicit"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"  # Should be forward-compatible
